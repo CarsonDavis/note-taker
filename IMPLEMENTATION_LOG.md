@@ -144,12 +144,18 @@
 **What was built:**
 - **Submit success animation**: Submit button now animates through three states (Submit → Saving → Sent!) using `AnimatedContent` with fade+scale transitions. Shows checkmark icon + tertiary color for 1.5s on success, then resets. Replaced snackbar-based "Note saved" feedback.
 - **Retrofit path encoding fix**: Added `encoded = true` to `@Path("path")` in `GitHubApi.kt` for both `getFileContent` and `createFile`. Without this, Retrofit URL-encodes the `/` in `inbox/filename.md` to `%2F`, causing GitHub to return 404.
-- **Digital assistant registration fix**: Two issues prevented the app from appearing in the digital assistant picker:
+- **Digital assistant registration fix**: Three issues prevented the app from working as the digital assistant:
   1. `NoteAssistSessionService` was `exported="false"` — the system couldn't bind to it. Changed to `exported="true"` (protected by `BIND_VOICE_INTERACTION` permission).
   2. Missing `android.intent.action.ASSIST` intent filter on `MainActivity`. `ROLE_ASSISTANT` requires both a `VoiceInteractionService` and an activity handling the ASSIST intent. Added the intent filter.
-- Updated `docs/APP-TRIGGER.md` to document both requirements.
+  3. Missing `recognitionService` in `assist_service.xml`. On Android 16, `VoiceInteractionServiceInfo` requires a `recognitionService` — without it, the service is "unqualified" and the `voice_interaction_service` secure setting is never populated even though `ROLE_ASSISTANT` is assigned. Created `NoteRecognitionService.kt` (stub that returns `ERROR_RECOGNIZER_BUSY`) and referenced it in the XML.
+- Updated `docs/APP-TRIGGER.md` to document all three requirements.
 
 **How verified:**
 - `./gradlew installDebug` → installed on SM-S928U1 (Android 16)
 - Note submission confirmed working on device
-- App now appears in Settings > Apps > Default Apps > Digital assistant app
+- App appears in Settings > Apps > Default Apps > Digital assistant app
+- `adb shell cmd role get-role-holders android.app.role.ASSISTANT` → `com.carsondavis.notetaker`
+- `adb shell dumpsys voiceinteraction` → shows `mComponent=com.carsondavis.notetaker/.assist.NoteAssistService` (active, no parse errors)
+
+**Key discovery:**
+- `ROLE_ASSISTANT` (RoleManager) and `voice_interaction_service` (secure setting) are separate systems. The role can be assigned while the VoiceInteractionManager still shows "No active implementation" if the service fails validation. The "unqualified" log message from `AssistantRoleBehavior` is the clue.

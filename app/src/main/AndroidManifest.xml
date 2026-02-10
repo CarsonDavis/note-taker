@@ -50,5 +50,11 @@
             android:name=".assist.NoteAssistSessionService"
             android:permission="android.permission.BIND_VOICE_INTERACTION"
             android:exported="true" />
+
+        <!-- Stub RecognitionService: required by VoiceInteractionServiceInfo on Android 16 -->
+        <service
+            android:name=".assist.NoteRecognitionService"
+            android:permission="android.permission.BIND_RECOGNITION_SERVICE"
+            android:exported="true" />
     </application>
 </manifest>

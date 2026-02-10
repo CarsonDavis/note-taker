@@ -29,6 +29,7 @@ Minimal Android app for capturing notes and pushing them to a GitHub repo via th
 - `NoteAssistService.kt` — Handles lock screen launch (`onLaunchVoiceAssistFromKeyguard`)
 - `NoteAssistSessionService.kt` — Session factory (boilerplate)
 - `NoteAssistSession.kt` — Handles unlocked launch path
+- `NoteRecognitionService.kt` — Stub RecognitionService (required by Android 16 for valid VoiceInteractionService)
 
 #### `data/api/`
 - `GitHubApi.kt` — Retrofit interface: user validation, contents API

@@ -79,11 +79,12 @@ picker).
 
 ```
 app/src/main/
-  java/com/example/notetaker/
+  kotlin/com/carsondavis/notetaker/
     assist/
-      NoteAssistService.kt           ← VoiceInteractionService (near-empty stub)
+      NoteAssistService.kt           ← VoiceInteractionService (lock screen entry)
       NoteAssistSessionService.kt    ← Creates sessions (boilerplate)
-      NoteAssistSession.kt           ← Launches the note capture Activity
+      NoteAssistSession.kt           ← Launches the note capture Activity (unlocked path)
+      NoteRecognitionService.kt      ← Stub RecognitionService (required by Android 16)
     NoteCaptureActivity.kt           ← The actual note-taking UI
   res/
     xml/
@@ -132,6 +133,12 @@ activity must declare `showWhenLocked` and `turnScreenOn`.
     android:permission="android.permission.BIND_VOICE_INTERACTION"
     android:exported="true" />
 
+<!-- Stub RecognitionService: required by VoiceInteractionServiceInfo on Android 16 -->
+<service
+    android:name=".assist.NoteRecognitionService"
+    android:permission="android.permission.BIND_RECOGNITION_SERVICE"
+    android:exported="true" />
+
 <!-- Note capture activity: shows over lock screen -->
 <activity
     android:name=".NoteCaptureActivity"
@@ -158,12 +165,17 @@ activity must declare `showWhenLocked` and `turnScreenOn`.
 <?xml version="1.0" encoding="utf-8"?>
 <voice-interaction-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:sessionService="com.carsondavis.notetaker.assist.NoteAssistSessionService"
+    android:recognitionService="com.carsondavis.notetaker.assist.NoteRecognitionService"
     android:supportsAssist="true"
     android:supportsLaunchVoiceAssistFromKeyguard="true" />
 ```
 
 **Key attributes:**
 - `sessionService` — required, fully qualified class name
+- `recognitionService` — required on Android 16. Without this, `VoiceInteractionServiceInfo`
+  reports a parse error ("No recognitionService specified") and the service is
+  considered "unqualified" for `ROLE_ASSISTANT`. A stub implementation that
+  returns an error is sufficient.
 - `supportsAssist="true"` — registers as an assist handler
 - `supportsLaunchVoiceAssistFromKeyguard="true"` — enables lock screen launch.
   Without this, the long-press from lock screen does nothing.
