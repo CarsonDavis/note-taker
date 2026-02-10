@@ -129,3 +129,27 @@
 - Fine-grained PAT over OAuth (see ADR 001): zero infrastructure, user controls repo scope natively via GitHub's PAT UI, simpler code
 - No repo picker — user types `owner/repo` manually (single-user app, one-time setup)
 - Token visibility toggle for usability during paste
+
+## M10: Topic Refresh After Submission (2026-02-10)
+
+**What was built:**
+- `NoteViewModel.submit()` now calls `fetchTopic()` after a successful note submission, so the topic bar updates if the LLM agent has changed the topic
+- Added "Smarter Topic Refresh" section to `docs/ROADMAP.md` documenting the limitation and future approaches (periodic polling, webhooks, ETag)
+
+**How verified:**
+- `./gradlew assembleDebug` → BUILD SUCCESSFUL (4s)
+
+## M11: On-Device Bug Fixes (2026-02-10)
+
+**What was built:**
+- **Submit success animation**: Submit button now animates through three states (Submit → Saving → Sent!) using `AnimatedContent` with fade+scale transitions. Shows checkmark icon + tertiary color for 1.5s on success, then resets. Replaced snackbar-based "Note saved" feedback.
+- **Retrofit path encoding fix**: Added `encoded = true` to `@Path("path")` in `GitHubApi.kt` for both `getFileContent` and `createFile`. Without this, Retrofit URL-encodes the `/` in `inbox/filename.md` to `%2F`, causing GitHub to return 404.
+- **Digital assistant registration fix**: Two issues prevented the app from appearing in the digital assistant picker:
+  1. `NoteAssistSessionService` was `exported="false"` — the system couldn't bind to it. Changed to `exported="true"` (protected by `BIND_VOICE_INTERACTION` permission).
+  2. Missing `android.intent.action.ASSIST` intent filter on `MainActivity`. `ROLE_ASSISTANT` requires both a `VoiceInteractionService` and an activity handling the ASSIST intent. Added the intent filter.
+- Updated `docs/APP-TRIGGER.md` to document both requirements.
+
+**How verified:**
+- `./gradlew installDebug` → installed on SM-S928U1 (Android 16)
+- Note submission confirmed working on device
+- App now appears in Settings > Apps > Default Apps > Digital assistant app

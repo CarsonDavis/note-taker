@@ -20,6 +20,7 @@ data class NoteUiState(
     val topic: String? = null,
     val isTopicLoading: Boolean = false,
     val isSubmitting: Boolean = false,
+    val submitSuccess: Boolean = false,
     val submissions: List<SubmissionItem> = emptyList(),
     val submitError: String? = null
 )
@@ -65,6 +66,10 @@ class NoteViewModel @Inject constructor(
         }
     }
 
+    fun clearSubmitSuccess() {
+        _uiState.update { it.copy(submitSuccess = false) }
+    }
+
     fun updateNoteText(text: String) {
         _uiState.update { it.copy(noteText = text, submitError = null) }
     }
@@ -76,9 +81,12 @@ class NoteViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isSubmitting = true, submitError = null) }
             val result = repository.submitNote(text)
+            if (result.isSuccess) {
+                fetchTopic()
+            }
             _uiState.update {
                 if (result.isSuccess) {
-                    it.copy(noteText = "", isSubmitting = false)
+                    it.copy(noteText = "", isSubmitting = false, submitSuccess = true)
                 } else {
                     it.copy(
                         isSubmitting = false,

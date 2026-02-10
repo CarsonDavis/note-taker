@@ -81,4 +81,4 @@ Minimal Android app for capturing notes and pushing them to a GitHub repo via th
 
 ## Status
 
-M1-M9 complete. All features implemented and compiling: note input, Room history, PAT-based auth, push to GitHub, sticky topic, settings, lock screen launch via VoiceInteractionService. `./gradlew assembleDebug` builds cleanly. Ready for on-device testing with a real PAT.
+M1-M11 complete. All features implemented, compiling, and verified on device (SM-S928U1, Android 16): note input with success animation, Room history, PAT-based auth, push to GitHub, sticky topic with post-submit refresh, settings, lock screen launch via VoiceInteractionService (registered as digital assistant).

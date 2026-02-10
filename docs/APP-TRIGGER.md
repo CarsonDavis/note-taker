@@ -91,12 +91,27 @@ app/src/main/
   AndroidManifest.xml
 ```
 
-### 1. AndroidManifest.xml — Service Declarations
+### 1. AndroidManifest.xml — Service and Activity Declarations
 
 Two services must be declared with `BIND_VOICE_INTERACTION` permission. The
-note capture activity must declare `showWhenLocked` and `turnScreenOn`.
+main activity must handle `android.intent.action.ASSIST`. The note capture
+activity must declare `showWhenLocked` and `turnScreenOn`.
 
 ```xml
+<!-- Main activity: must handle ASSIST intent for ROLE_ASSISTANT eligibility -->
+<activity
+    android:name=".MainActivity"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.LAUNCHER" />
+    </intent-filter>
+    <intent-filter>
+        <action android:name="android.intent.action.ASSIST" />
+        <category android:name="android.intent.category.DEFAULT" />
+    </intent-filter>
+</activity>
+
 <!-- VoiceInteractionService: the system binds to this -->
 <service
     android:name=".assist.NoteAssistService"
@@ -111,11 +126,11 @@ note capture activity must declare `showWhenLocked` and `turnScreenOn`.
     </intent-filter>
 </service>
 
-<!-- VoiceInteractionSessionService: creates sessions -->
+<!-- VoiceInteractionSessionService: creates sessions (must be exported for system binding) -->
 <service
     android:name=".assist.NoteAssistSessionService"
     android:permission="android.permission.BIND_VOICE_INTERACTION"
-    android:exported="false" />
+    android:exported="true" />
 
 <!-- Note capture activity: shows over lock screen -->
 <activity
@@ -126,8 +141,12 @@ note capture activity must declare `showWhenLocked` and `turnScreenOn`.
 ```
 
 **Notes:**
+- `ROLE_ASSISTANT` requires **both** a `VoiceInteractionService` **and** an
+  activity handling `android.intent.action.ASSIST`. Without the ASSIST intent
+  filter, the app won't appear in the digital assistant picker.
 - `BIND_VOICE_INTERACTION` on the services prevents arbitrary apps from binding.
   You do NOT `<uses-permission>` this — it's declared *on* the service.
+- `NoteAssistSessionService` must be `exported="true"` so the system can bind to it.
 - No special permissions needed (no RECORD_AUDIO, no CAMERA, etc.).
 - `showWhenLocked="true"` and `turnScreenOn="true"` are the XML equivalents of
   calling the methods in code. They let the activity display over the lock

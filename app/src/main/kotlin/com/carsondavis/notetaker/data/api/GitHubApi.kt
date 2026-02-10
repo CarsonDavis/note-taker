@@ -24,7 +24,7 @@ interface GitHubApi {
         @Header("Authorization") auth: String,
         @Path("owner") owner: String,
         @Path("repo") repo: String,
-        @Path("path") path: String
+        @Path("path", encoded = true) path: String
     ): GitHubFileContent
 
     @PUT("repos/{owner}/{repo}/contents/{path}")
@@ -32,7 +32,7 @@ interface GitHubApi {
         @Header("Authorization") auth: String,
         @Path("owner") owner: String,
         @Path("repo") repo: String,
-        @Path("path") path: String,
+        @Path("path", encoded = true) path: String,
         @Body request: CreateFileRequest
     ): CreateFileResponse
 }

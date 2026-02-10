@@ -1,19 +1,31 @@
 package com.carsondavis.notetaker.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -34,6 +46,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.carsondavis.notetaker.ui.components.SubmissionHistory
 import com.carsondavis.notetaker.ui.components.TopicBar
 import com.carsondavis.notetaker.ui.viewmodels.NoteViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
@@ -44,15 +57,11 @@ fun NoteInputScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    val previousSubmissionCount = remember { androidx.compose.runtime.mutableIntStateOf(0) }
-
-    LaunchedEffect(uiState.submissions.size) {
-        if (uiState.submissions.size > previousSubmissionCount.intValue && previousSubmissionCount.intValue > 0) {
-            scope.launch {
-                snackbarHostState.showSnackbar("Note saved")
-            }
+    LaunchedEffect(uiState.submitSuccess) {
+        if (uiState.submitSuccess) {
+            delay(1500)
+            viewModel.clearSubmitSuccess()
         }
-        previousSubmissionCount.intValue = uiState.submissions.size
     }
 
     LaunchedEffect(uiState.submitError) {
@@ -102,23 +111,54 @@ fun NoteInputScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Button(
-                        onClick = {
-                            viewModel.submit()
-                        },
-                        enabled = uiState.noteText.isNotBlank() && !uiState.isSubmitting
-                    ) {
-                        if (uiState.isSubmitting) {
-                            CircularProgressIndicator(
-                                modifier = Modifier
-                                    .width(16.dp)
-                                    .height(16.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onPrimary
+                        onClick = { viewModel.submit() },
+                        enabled = uiState.noteText.isNotBlank() && !uiState.isSubmitting && !uiState.submitSuccess,
+                        colors = if (uiState.submitSuccess) {
+                            ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.tertiary,
+                                contentColor = MaterialTheme.colorScheme.onTertiary
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Saving")
                         } else {
-                            Text("Submit")
+                            ButtonDefaults.buttonColors()
+                        }
+                    ) {
+                        AnimatedContent(
+                            targetState = when {
+                                uiState.submitSuccess -> "success"
+                                uiState.isSubmitting -> "submitting"
+                                else -> "idle"
+                            },
+                            transitionSpec = {
+                                (fadeIn() + scaleIn(initialScale = 0.8f))
+                                    .togetherWith(fadeOut() + scaleOut(targetScale = 0.8f))
+                            },
+                            label = "submitButton"
+                        ) { state ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                when (state) {
+                                    "submitting" -> {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(16.dp),
+                                            strokeWidth = 2.dp,
+                                            color = MaterialTheme.colorScheme.onPrimary
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Saving")
+                                    }
+                                    "success" -> {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Sent!")
+                                    }
+                                    else -> {
+                                        Text("Submit")
+                                    }
+                                }
+                            }
                         }
                     }
                 }
