@@ -17,11 +17,10 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -52,6 +51,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun NoteInputScreen(
     onSettingsClick: () -> Unit,
+    onBrowseClick: () -> Unit = {},
     viewModel: NoteViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -61,6 +61,13 @@ fun NoteInputScreen(
         if (uiState.submitSuccess) {
             delay(1500)
             viewModel.clearSubmitSuccess()
+        }
+    }
+
+    LaunchedEffect(uiState.submitQueued) {
+        if (uiState.submitQueued) {
+            delay(1500)
+            viewModel.clearSubmitQueued()
         }
     }
 
@@ -84,7 +91,8 @@ fun NoteInputScreen(
             TopicBar(
                 topic = uiState.topic,
                 isLoading = uiState.isTopicLoading,
-                onSettingsClick = onSettingsClick
+                onSettingsClick = onSettingsClick,
+                onBrowseClick = onBrowseClick
             )
 
             Column(
@@ -110,55 +118,80 @@ fun NoteInputScreen(
                     modifier = Modifier.fillMaxWidth(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Button(
-                        onClick = { viewModel.submit() },
-                        enabled = uiState.noteText.isNotBlank() && !uiState.isSubmitting && !uiState.submitSuccess,
-                        colors = if (uiState.submitSuccess) {
-                            ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.tertiary,
-                                contentColor = MaterialTheme.colorScheme.onTertiary
-                            )
-                        } else {
-                            ButtonDefaults.buttonColors()
-                        }
-                    ) {
-                        AnimatedContent(
-                            targetState = when {
-                                uiState.submitSuccess -> "success"
-                                uiState.isSubmitting -> "submitting"
-                                else -> "idle"
-                            },
-                            transitionSpec = {
-                                (fadeIn() + scaleIn(initialScale = 0.8f))
-                                    .togetherWith(fadeOut() + scaleOut(targetScale = 0.8f))
-                            },
-                            label = "submitButton"
-                        ) { state ->
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                when (state) {
-                                    "submitting" -> {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(16.dp),
-                                            strokeWidth = 2.dp,
-                                            color = MaterialTheme.colorScheme.onPrimary
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Saving")
-                                    }
-                                    "success" -> {
-                                        Icon(
-                                            imageVector = Icons.Default.Check,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Sent!")
-                                    }
-                                    else -> {
-                                        Text("Submit")
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Button(
+                            onClick = { viewModel.submit() },
+                            enabled = uiState.noteText.isNotBlank() && !uiState.isSubmitting
+                                    && !uiState.submitSuccess && !uiState.submitQueued,
+                            colors = when {
+                                uiState.submitSuccess -> ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.tertiary,
+                                    contentColor = MaterialTheme.colorScheme.onTertiary
+                                )
+                                uiState.submitQueued -> ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.secondary,
+                                    contentColor = MaterialTheme.colorScheme.onSecondary
+                                )
+                                else -> ButtonDefaults.buttonColors()
+                            }
+                        ) {
+                            AnimatedContent(
+                                targetState = when {
+                                    uiState.submitSuccess -> "success"
+                                    uiState.submitQueued -> "queued"
+                                    uiState.isSubmitting -> "submitting"
+                                    else -> "idle"
+                                },
+                                transitionSpec = {
+                                    (fadeIn() + scaleIn(initialScale = 0.8f))
+                                        .togetherWith(fadeOut() + scaleOut(targetScale = 0.8f))
+                                },
+                                label = "submitButton"
+                            ) { state ->
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    when (state) {
+                                        "submitting" -> {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(16.dp),
+                                                strokeWidth = 2.dp,
+                                                color = MaterialTheme.colorScheme.onPrimary
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text("Saving")
+                                        }
+                                        "success" -> {
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text("Sent!")
+                                        }
+                                        "queued" -> {
+                                            Icon(
+                                                imageVector = Icons.Default.Schedule,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text("Queued")
+                                        }
+                                        else -> {
+                                            Text("Submit")
+                                        }
                                     }
                                 }
                             }
+                        }
+
+                        if (uiState.pendingCount > 0) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "${uiState.pendingCount} note${if (uiState.pendingCount != 1) "s" else ""} queued",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }

@@ -4,7 +4,9 @@ import android.content.Context
 import androidx.room.Room
 import com.carsondavis.notetaker.data.api.GitHubApi
 import com.carsondavis.notetaker.data.local.AppDatabase
+import com.carsondavis.notetaker.data.local.PendingNoteDao
 import com.carsondavis.notetaker.data.local.SubmissionDao
+import androidx.work.WorkManager
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -64,11 +66,22 @@ object AppModule {
             context,
             AppDatabase::class.java,
             "notetaker.db"
-        ).build()
+        ).addMigrations(AppDatabase.MIGRATION_1_2).build()
     }
 
     @Provides
     fun provideSubmissionDao(db: AppDatabase): SubmissionDao {
         return db.submissionDao()
+    }
+
+    @Provides
+    fun providePendingNoteDao(db: AppDatabase): PendingNoteDao {
+        return db.pendingNoteDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideWorkManager(@ApplicationContext context: Context): WorkManager {
+        return WorkManager.getInstance(context)
     }
 }

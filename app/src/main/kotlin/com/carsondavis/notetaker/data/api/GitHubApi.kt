@@ -27,6 +27,21 @@ interface GitHubApi {
         @Path("path", encoded = true) path: String
     ): GitHubFileContent
 
+    @GET("repos/{owner}/{repo}/contents/{path}")
+    suspend fun getDirectoryContents(
+        @Header("Authorization") auth: String,
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("path", encoded = true) path: String
+    ): List<GitHubDirectoryEntry>
+
+    @GET("repos/{owner}/{repo}/contents/")
+    suspend fun getRootContents(
+        @Header("Authorization") auth: String,
+        @Path("owner") owner: String,
+        @Path("repo") repo: String
+    ): List<GitHubDirectoryEntry>
+
     @PUT("repos/{owner}/{repo}/contents/{path}")
     suspend fun createFile(
         @Header("Authorization") auth: String,
@@ -50,6 +65,14 @@ data class GitHubFileContent(
     val content: String? = null,
     val encoding: String? = null,
     val sha: String? = null
+)
+
+@Serializable
+data class GitHubDirectoryEntry(
+    val name: String,
+    val path: String,
+    val type: String, // "file" or "dir"
+    val size: Long = 0
 )
 
 @Serializable

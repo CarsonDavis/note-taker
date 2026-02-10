@@ -38,32 +38,40 @@ Minimal Android app for capturing notes and pushing them to a GitHub repo via th
 - `AuthManager.kt` — Token + repo storage via Preferences DataStore
 
 #### `data/local/`
-- `AppDatabase.kt` — Room database definition
+- `AppDatabase.kt` — Room database definition (v2: submissions + pending_notes)
 - `SubmissionDao.kt` — History queries (insert, getRecent)
 - `SubmissionEntity.kt` — Submission history table
+- `PendingNoteEntity.kt` — Offline queue table (text, filename, status)
+- `PendingNoteDao.kt` — Queue queries (insert, getAllPending, getPendingCount, updateStatus, delete)
 
 #### `data/repository/`
-- `NoteRepository.kt` — Data access: submit notes, fetch topic
+- `NoteRepository.kt` — Data access: queue-first submit, fetch topic, browse directory/file contents
+
+#### `data/worker/`
+- `NoteUploadWorker.kt` — HiltWorker for retrying pending note uploads when network is available
 
 #### `di/`
-- `AppModule.kt` — Hilt providers (Retrofit, OkHttp, Room, DAO)
+- `AppModule.kt` — Hilt providers (Retrofit, OkHttp, Room, DAOs, WorkManager)
 
 #### `ui/components/`
-- `TopicBar.kt` — Sticky topic display + settings gear
+- `TopicBar.kt` — Sticky topic display + browse icon + settings gear
 - `SubmissionHistory.kt` — Collapsible recent submissions list
+- `MarkdownContent.kt` — Markwon-based markdown renderer wrapped in AndroidView for Compose
 
 #### `ui/navigation/`
-- `NavGraph.kt` — Compose Navigation with type-safe routes (Auth, Note, Settings)
+- `NavGraph.kt` — Compose Navigation with type-safe routes (Auth, Note, Settings, Browse)
 
 #### `ui/screens/`
-- `NoteInputScreen.kt` — Main note input (text field, submit, history, snackbar)
+- `NoteInputScreen.kt` — Main note input (text field, submit with queued state, pending count, history)
 - `AuthScreen.kt` — PAT setup screen: token + repo input, validation
 - `SettingsScreen.kt` — Sign out, read-only repo display, digital assistant role detection
+- `BrowseScreen.kt` — Read-only repo browser: directory listing, file viewer with markdown rendering
 
 #### `ui/viewmodels/`
-- `NoteViewModel.kt` — Note input state, submit, topic fetch
+- `NoteViewModel.kt` — Note input state, queue-first submit, pending count, topic fetch
 - `AuthViewModel.kt` — PAT validation + setup flow
 - `SettingsViewModel.kt` — Settings state, sign out, role check
+- `BrowseViewModel.kt` — Browse state: directory navigation, file viewing
 
 #### `ui/theme/`
 - `Theme.kt` — Dark-only Material 3 theme
@@ -82,4 +90,4 @@ Minimal Android app for capturing notes and pushing them to a GitHub repo via th
 
 ## Status
 
-M1-M11 complete. All features implemented, compiling, and verified on device (SM-S928U1, Android 16): note input with success animation, Room history, PAT-based auth, push to GitHub, sticky topic with post-submit refresh, settings, lock screen launch via VoiceInteractionService (registered as digital assistant).
+M1-M16 complete. V1 features (M1-M11) verified on device. V2 adds offline note queuing with WorkManager retry (M12-M14) and a read-only repo browser with markdown rendering (M15-M16). All compiling.

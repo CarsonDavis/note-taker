@@ -89,6 +89,23 @@ Accessible from the top bar of the note input screen.
 - Works from both locked and unlocked states
 - See `APP-TRIGGER.md` for full implementation details
 
+### FR7: Offline Note Queuing ✅
+- Notes are always saved to a local Room queue before attempting GitHub push
+- On success, note is removed from queue and recorded in submission history
+- On failure (no network, API error), note stays queued and WorkManager schedules retry with network connectivity constraint
+- Handles 422 conflict (duplicate filename) by appending suffix
+- UI shows "Queued" animation on submit failure and pending count badge
+- Count drops to 0 automatically when WorkManager succeeds in the background
+
+### FR8: Browse Notes ✅
+- Read-only repo browser accessible from the note input screen's top bar
+- Fetches repo contents via GitHub REST API (Contents API)
+- Displays folder/file tree — tap folder to navigate, tap file to view
+- Renders markdown files via Markwon, non-markdown in monospace
+- BackHandler for in-screen navigation (file → directory → parent → exit)
+- From lock screen, browse icon triggers `requestDismissKeyguard()` → opens in MainActivity
+- Empty state, error state with retry, loading indicator
+
 ### Lock Screen Security ✅
 Two-tier model (same pattern as the camera app):
 1. **Quick capture (no auth)** — note input works over the lock screen
@@ -107,8 +124,7 @@ Two-tier model (same pattern as the camera app):
 
 - Note processing, cleaning, or organization (handled by the notes repo's LLM agent)
 - Topic management UI (topics are set via note content)
-- Offline note queuing (see `ROADMAP.md`)
-- Browse notes screen (see `ROADMAP.md`)
+- Smarter topic refresh (see `ROADMAP.md`)
 - Web UI
 - Multi-user support
 - iOS

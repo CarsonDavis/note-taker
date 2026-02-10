@@ -21,10 +21,20 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        val initialRoute = when {
+            intent.getBooleanExtra("open_settings", false) -> "settings"
+            intent.getBooleanExtra("open_browse", false) -> "browse"
+            else -> null
+        }
+
         setContent {
             NoteTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    AppNavGraph(authManager = authManager)
+                    AppNavGraph(
+                        authManager = authManager,
+                        initialRoute = initialRoute
+                    )
                 }
             }
         }

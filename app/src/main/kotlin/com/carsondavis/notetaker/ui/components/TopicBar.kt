@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -20,6 +21,7 @@ fun TopicBar(
     topic: String?,
     isLoading: Boolean,
     onSettingsClick: () -> Unit,
+    onBrowseClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -45,6 +47,13 @@ fun TopicBar(
             color = textColor,
             modifier = Modifier.weight(1f)
         )
+
+        IconButton(onClick = onBrowseClick) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.MenuBook,
+                contentDescription = "Browse notes"
+            )
+        }
 
         IconButton(onClick = onSettingsClick) {
             Icon(

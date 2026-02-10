@@ -3,6 +3,7 @@ package com.carsondavis.notetaker.ui.viewmodels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.carsondavis.notetaker.data.repository.NoteRepository
+import com.carsondavis.notetaker.data.repository.SubmitResult
 import com.carsondavis.notetaker.ui.components.SubmissionItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,6 +22,8 @@ data class NoteUiState(
     val isTopicLoading: Boolean = false,
     val isSubmitting: Boolean = false,
     val submitSuccess: Boolean = false,
+    val submitQueued: Boolean = false,
+    val pendingCount: Int = 0,
     val submissions: List<SubmissionItem> = emptyList(),
     val submitError: String? = null
 )
@@ -37,6 +40,7 @@ class NoteViewModel @Inject constructor(
 
     init {
         observeSubmissions()
+        observePendingCount()
         fetchTopic()
     }
 
@@ -58,6 +62,14 @@ class NoteViewModel @Inject constructor(
         }
     }
 
+    private fun observePendingCount() {
+        viewModelScope.launch {
+            repository.pendingCount.collect { count ->
+                _uiState.update { it.copy(pendingCount = count) }
+            }
+        }
+    }
+
     private fun fetchTopic() {
         viewModelScope.launch {
             _uiState.update { it.copy(isTopicLoading = true) }
@@ -68,6 +80,10 @@ class NoteViewModel @Inject constructor(
 
     fun clearSubmitSuccess() {
         _uiState.update { it.copy(submitSuccess = false) }
+    }
+
+    fun clearSubmitQueued() {
+        _uiState.update { it.copy(submitQueued = false) }
     }
 
     fun updateNoteText(text: String) {
@@ -81,17 +97,20 @@ class NoteViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isSubmitting = true, submitError = null) }
             val result = repository.submitNote(text)
-            if (result.isSuccess) {
-                fetchTopic()
-            }
-            _uiState.update {
-                if (result.isSuccess) {
-                    it.copy(noteText = "", isSubmitting = false, submitSuccess = true)
-                } else {
-                    it.copy(
-                        isSubmitting = false,
-                        submitError = result.exceptionOrNull()?.message ?: "Unknown error"
-                    )
+
+            result.onSuccess { submitResult ->
+                when (submitResult) {
+                    SubmitResult.SENT -> {
+                        fetchTopic()
+                        _uiState.update {
+                            it.copy(noteText = "", isSubmitting = false, submitSuccess = true)
+                        }
+                    }
+                    SubmitResult.QUEUED -> {
+                        _uiState.update {
+                            it.copy(noteText = "", isSubmitting = false, submitQueued = true)
+                        }
+                    }
                 }
             }
         }

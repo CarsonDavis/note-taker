@@ -159,3 +159,62 @@
 
 **Key discovery:**
 - `ROLE_ASSISTANT` (RoleManager) and `voice_interaction_service` (secure setting) are separate systems. The role can be assigned while the VoiceInteractionManager still shows "No active implementation" if the service fails validation. The "unqualified" log message from `AssistantRoleBehavior` is the clue.
+
+## M12: PendingNote Entity + Room Migration (2026-02-10)
+
+**What was built:**
+- `PendingNoteEntity` — Room entity: id, text, filename, createdAt, status (pending/uploading/failed)
+- `PendingNoteDao` — insert, getAllPending, getPendingCount (Flow), updateStatus, delete
+- `AppDatabase` — bumped version 1→2, added `MIGRATION_1_2` (CREATE TABLE for pending_notes)
+- `AppModule` — added `.addMigrations(MIGRATION_1_2)`, provides PendingNoteDao
+
+**How verified:**
+- `./gradlew assembleDebug` → BUILD SUCCESSFUL
+
+## M13: Queue-First Submission + WorkManager (2026-02-10)
+
+**What was built:**
+- Added dependencies: `work-runtime-ktx:2.10.1`, `hilt-work:1.2.0`, `hilt-compiler:1.2.0`
+- `NoteUploadWorker` — `@HiltWorker` CoroutineWorker: processes all pending notes, handles 422 conflict with `-1` suffix
+- `NoteRepository` — new queue-first flow: always insert to pending_notes first, try immediate push, fall back to WorkManager retry. Returns `SubmitResult.SENT` or `SubmitResult.QUEUED`. Exposes `pendingCount: Flow<Int>`
+- `NoteApp` — implements `Configuration.Provider` with `HiltWorkerFactory` for `@HiltWorker` support
+- `AndroidManifest.xml` — disabled default WorkManager initializer via `<provider>` removal
+- `AppModule` — provides `WorkManager` instance
+
+**How verified:**
+- `./gradlew assembleDebug` → BUILD SUCCESSFUL
+
+## M14: Queue UI Indicators (2026-02-10)
+
+**What was built:**
+- `NoteUiState` — added `submitQueued: Boolean` and `pendingCount: Int`
+- `NoteViewModel` — observes `pendingCount`, handles `SubmitResult.QUEUED` (clears text, sets submitQueued)
+- `NoteInputScreen` — added "queued" state to `AnimatedContent` (clock icon + "Queued" text, secondary color), auto-dismisses after 1.5s. Shows "N notes queued" text below button when `pendingCount > 0`
+- `TopicBar` — added `onBrowseClick` parameter with browse icon (MenuBook) next to settings gear
+
+**How verified:**
+- `./gradlew assembleDebug` → BUILD SUCCESSFUL
+
+## M15: Browse Notes — Data Layer + ViewModel (2026-02-10)
+
+**What was built:**
+- `GitHubApi` — added `getDirectoryContents()` and `getRootContents()` endpoints, `GitHubDirectoryEntry` data class
+- `NoteRepository` — added `fetchDirectoryContents(path)` (sorts dirs-first then alphabetical) and `fetchFileContent(path)` (Base64-decodes)
+- `BrowseViewModel` — manages browse state: directory navigation, file viewing, navigateUp
+
+**How verified:**
+- `./gradlew assembleDebug` → BUILD SUCCESSFUL
+
+## M16: Browse Notes — Screen + Navigation + Markdown (2026-02-10)
+
+**What was built:**
+- Added dependency: `markwon-core:4.6.2` for markdown rendering
+- `MarkdownContent` — `AndroidView` wrapping Markwon `TextView`, respects Material theme text color
+- `BrowseScreen` — TopAppBar with back arrow, directory listing with folder/file icons, file viewer (markdown via Markwon or monospace for non-.md), BackHandler for in-screen navigation, empty/error/loading states
+- `NavGraph` — added `BrowseRoute`, `initialRoute` parameter for intent-driven navigation
+- `NoteInputScreen` — added `onBrowseClick` parameter
+- `NoteCaptureActivity` — refactored to `dismissAndNavigate()` helper, supports both settings and browse
+- `MainActivity` — reads `open_settings`/`open_browse` intent extras, passes `initialRoute` to `AppNavGraph`
+
+**How verified:**
+- `./gradlew assembleDebug` → BUILD SUCCESSFUL

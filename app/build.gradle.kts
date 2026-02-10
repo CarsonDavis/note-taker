@@ -68,6 +68,14 @@ dependencies {
     // kotlinx.serialization
     implementation(libs.kotlinx.serialization.json)
 
+    // WorkManager
+    implementation(libs.work.runtime.ktx)
+    implementation(libs.hilt.work)
+    ksp(libs.hilt.work.compiler)
+
+    // Markwon
+    implementation(libs.markwon.core)
+
     // DataStore
     implementation(libs.datastore.preferences)
 }
