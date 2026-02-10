@@ -107,3 +107,25 @@
 
 **How verified:**
 - `./gradlew assembleDebug` → BUILD SUCCESSFUL (0 warnings)
+
+## M9: Auth Migration — OAuth Device Flow → Fine-Grained PAT (2026-02-09)
+
+**What was built:**
+- Replaced OAuth device flow with simple PAT-based setup screen
+- `AuthScreen.kt` — Single screen: instructions, "Create Token on GitHub" button, token field (password-masked with visibility toggle), repo field (`owner/repo`), "Continue" button with validation spinner
+- `AuthViewModel.kt` — Validates token via `GET /user`, parses `owner/repo`, saves via AuthManager
+- `GitHubApi.kt` — Removed device flow endpoints (`requestDeviceCode`, `pollAccessToken`, `getUserRepos`) and data classes (`DeviceCodeRequest/Response`, `AccessTokenRequest/Response`, `GitHubRepo`)
+- `NoteRepository.kt` — Removed `getUserRepos()` method
+- `SettingsViewModel.kt` — Removed repo picker state and methods, removed `NoteRepository` dependency
+- `SettingsScreen.kt` — Removed repo picker bottom sheet and "Change" button, repo shown read-only with hint
+- Created `docs/adr/001-pat-over-oauth.md` — Documents the decision
+- Created `docs/PAT-SETUP.md` — User-facing setup instructions
+
+**How verified:**
+- `./gradlew assembleDebug` → BUILD SUCCESSFUL (7s)
+- AuthManager, NavGraph, AppModule, NoteRepository (submitNote/fetchCurrentTopic) unchanged — PAT works identically as Bearer token
+
+**Key decisions:**
+- Fine-grained PAT over OAuth (see ADR 001): zero infrastructure, user controls repo scope natively via GitHub's PAT UI, simpler code
+- No repo picker — user types `owner/repo` manually (single-user app, one-time setup)
+- Token visibility toggle for usability during paste

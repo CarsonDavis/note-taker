@@ -138,7 +138,7 @@ note capture activity must declare `showWhenLocked` and `turnScreenOn`.
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <voice-interaction-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:sessionService="com.example.notetaker.assist.NoteAssistSessionService"
+    android:sessionService="com.carsondavis.notetaker.assist.NoteAssistSessionService"
     android:supportsAssist="true"
     android:supportsLaunchVoiceAssistFromKeyguard="true" />
 ```

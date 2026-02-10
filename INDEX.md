@@ -10,6 +10,7 @@ Minimal Android app for capturing notes and pushing them to a GitHub repo via th
 - `gradle/libs.versions.toml` — Version catalog (all dependency versions)
 - `.gitignore` — Git ignore rules
 - `IMPLEMENTATION_LOG.md` — Build log for each milestone
+- `HANDOFF.md` — Current state, blockers, and next steps for handoff
 
 ### `app/` — Android Application Module
 
@@ -30,7 +31,7 @@ Minimal Android app for capturing notes and pushing them to a GitHub repo via th
 - `NoteAssistSession.kt` — Handles unlocked launch path
 
 #### `data/api/`
-- `GitHubApi.kt` — Retrofit interface: device flow, user/repos, contents API
+- `GitHubApi.kt` — Retrofit interface: user validation, contents API
 
 #### `data/auth/`
 - `AuthManager.kt` — Token + repo storage via Preferences DataStore
@@ -41,7 +42,7 @@ Minimal Android app for capturing notes and pushing them to a GitHub repo via th
 - `SubmissionEntity.kt` — Submission history table
 
 #### `data/repository/`
-- `NoteRepository.kt` — Data access: submit notes, fetch topic, get repos
+- `NoteRepository.kt` — Data access: submit notes, fetch topic
 
 #### `di/`
 - `AppModule.kt` — Hilt providers (Retrofit, OkHttp, Room, DAO)
@@ -55,13 +56,13 @@ Minimal Android app for capturing notes and pushing them to a GitHub repo via th
 
 #### `ui/screens/`
 - `NoteInputScreen.kt` — Main note input (text field, submit, history, snackbar)
-- `AuthScreen.kt` — Device flow auth: welcome → device code → repo selection
-- `SettingsScreen.kt` — Sign out, repo picker, digital assistant role detection
+- `AuthScreen.kt` — PAT setup screen: token + repo input, validation
+- `SettingsScreen.kt` — Sign out, read-only repo display, digital assistant role detection
 
 #### `ui/viewmodels/`
 - `NoteViewModel.kt` — Note input state, submit, topic fetch
-- `AuthViewModel.kt` — Device flow auth + polling
-- `SettingsViewModel.kt` — Settings state, sign out, repo picker, role check
+- `AuthViewModel.kt` — PAT validation + setup flow
+- `SettingsViewModel.kt` — Settings state, sign out, role check
 
 #### `ui/theme/`
 - `Theme.kt` — Dark-only Material 3 theme
@@ -72,12 +73,12 @@ Minimal Android app for capturing notes and pushing them to a GitHub repo via th
 
 - `docs/REQUIREMENTS.md` — Functional and non-functional requirements
 - `docs/WIREFRAMES.md` — ASCII wireframes for all screens and states
+- `docs/PAT-SETUP.md` — User guide for creating a fine-grained GitHub PAT
 - `docs/APP-TRIGGER.md` — Lock screen launch via VoiceInteractionService
 - `docs/ROADMAP.md` — Future features (v2+)
+- `docs/adr/001-pat-over-oauth.md` — ADR: why fine-grained PAT over OAuth/GitHub App
 - `docs/research/` — Research on assist API, lock screen, power button, GitHub OAuth
 
 ## Status
 
-M1-M8 complete. All features implemented and compiling: note input, Room history, GitHub device flow auth, push to GitHub, sticky topic, settings, lock screen launch via VoiceInteractionService. `./gradlew assembleDebug` builds cleanly with 0 warnings.
-
-**Current blocker:** Auth is mid-migration from OAuth App to GitHub App for fine-grained repo permissions. See `HANDOFF.md` for full details and next steps.
+M1-M9 complete. All features implemented and compiling: note input, Room history, PAT-based auth, push to GitHub, sticky topic, settings, lock screen launch via VoiceInteractionService. `./gradlew assembleDebug` builds cleanly. Ready for on-device testing with a real PAT.

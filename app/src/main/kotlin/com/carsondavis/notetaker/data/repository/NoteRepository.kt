@@ -3,7 +3,6 @@ package com.carsondavis.notetaker.data.repository
 import android.util.Base64
 import com.carsondavis.notetaker.data.api.CreateFileRequest
 import com.carsondavis.notetaker.data.api.GitHubApi
-import com.carsondavis.notetaker.data.api.GitHubRepo
 import com.carsondavis.notetaker.data.auth.AuthManager
 import com.carsondavis.notetaker.data.local.SubmissionDao
 import com.carsondavis.notetaker.data.local.SubmissionEntity
@@ -89,9 +88,4 @@ class NoteRepository @Inject constructor(
         }
     }
 
-    suspend fun getUserRepos(): List<GitHubRepo> {
-        val token = authManager.accessToken.first()
-            ?: throw Exception("Not authenticated")
-        return api.getUserRepos(auth = "Bearer $token")
-    }
 }

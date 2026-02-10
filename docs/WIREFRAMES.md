@@ -107,7 +107,9 @@ Accessible via the gear icon on the note input screen. If launched from lock scr
 │ [ Sign Out ]                 │
 │                              │
 │ Repository                   │
-│ [ CarsonDavis/notes      ] ▾ │
+│ CarsonDavis/notes            │
+│ Sign out to change           │
+│ repository or token          │
 │                              │
 │ ─────────────────────────    │
 │                              │
@@ -117,13 +119,13 @@ Accessible via the gear icon on the note input screen. If launched from lock scr
 └──────────────────────────────┘
 ```
 
+Repository is shown read-only. To change repo or rotate token, user signs out and re-enters setup.
+
 ### GitHub Account — Not Signed In
 ```
 │ GitHub Account               │
-│ [ Sign in with GitHub ]      │
+│ Not signed in                │
 ```
-
-Tapping triggers the device flow (see First Run below).
 
 ### Digital Assistant — Not Configured
 ```
@@ -136,62 +138,40 @@ Shows a warning and a button that opens the system's default assistant picker.
 
 ---
 
-## 3. First Run / Device Flow Auth
+## 3. First Run / PAT Setup
 
-On first run (or when not authenticated), the app shows the auth flow directly:
+On first run (or when not authenticated), the app shows the PAT setup screen:
 
-### Step 1: Initiate
 ```
 ┌──────────────────────────────┐
 │                              │
-│       Welcome to             │
-│       Note Taker             │
+│        Note Taker            │
 │                              │
-│  [ Sign in with GitHub ]     │
+│  To get started, create a    │
+│  fine-grained Personal       │
+│  Access Token on GitHub:     │
 │                              │
-└──────────────────────────────┘
-```
-
-### Step 2: Device Code
-```
-┌──────────────────────────────┐
+│  1. Create a token scoped    │
+│     to your notes repo       │
+│  2. Grant Contents read &    │
+│     write permission         │
+│  3. Paste the token below    │
 │                              │
-│  Go to:                      │
-│  github.com/login/device     │
+│  [ Create Token on GitHub ]  │
 │                              │
-│  Enter code:                 │
 │  ┌────────────────────────┐  │
-│  │      ABCD-1234         │  │  ← tap to copy
+│  │ Personal Access Token 👁│  │
+│  └────────────────────────┘  │
+│  ┌────────────────────────┐  │
+│  │ owner/repo             │  │
 │  └────────────────────────┘  │
 │                              │
-│  Waiting for authorization…  │  ← polling indicator
-│                              │
-│  [ Open Browser ]            │
+│       [ Continue ]           │
 │                              │
 └──────────────────────────────┘
 ```
 
-"Open Browser" opens `github.com/login/device` in the default browser. Code is tappable to copy to clipboard.
-
-### Step 3: Select Repo
-```
-┌──────────────────────────────┐
-│                              │
-│  ✓ Signed in as CarsonDavis  │
-│                              │
-│  Select a repository:        │
-│                              │
-│  ○ CarsonDavis/notes         │
-│  ○ CarsonDavis/note-taker    │
-│  ○ CarsonDavis/dotfiles      │
-│  ...                         │
-│                              │
-│  [ Continue ]                │
-│                              │
-└──────────────────────────────┘
-```
-
-Fetches user's repos via GitHub API. After selection, navigates to the note input screen.
+"Create Token on GitHub" opens the GitHub fine-grained PAT creation page. Token field is password-masked with a visibility toggle. "Continue" validates the token via `GET /user` and navigates to note input.
 
 ---
 

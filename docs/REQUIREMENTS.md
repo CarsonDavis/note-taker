@@ -39,8 +39,8 @@ The default and only landing screen. Always opens here.
 ### 2. Settings
 Accessible from the top bar of the note input screen.
 
-- GitHub account — sign in / sign out via device flow
-- Repository — select from user's repos
+- GitHub account — sign in / sign out
+- Repository — shown read-only (sign out to change)
 - Digital assistant setup — detect if app holds `ROLE_ASSISTANT`, guide user to system settings if not
 
 ## Functional Requirements
@@ -73,17 +73,15 @@ Accessible from the top bar of the note input screen.
 - Persists across app restarts
 
 ### FR5: Authentication & Configuration ✅
-- Authenticate via **GitHub OAuth Device Flow**:
-  1. App registers a GitHub OAuth App (Client ID hardcoded in app)
-  2. On first run, app requests a device code from GitHub
-  3. App displays a user code and link to `github.com/login/device`
-  4. User opens browser, enters code, authorizes the app
-  5. App polls GitHub for the access token, stores it in Android encrypted shared preferences
-- No client secret on device — device flow doesn't require it
-- No backend needed
-- Token needs `repo` scope for the target repo
-- Repository is user-configurable — after auth, fetch user's repos via API and let them pick from a list
-- See `research/github-oauth/` for full research on auth approaches and why device flow was chosen
+- Authenticate via **fine-grained Personal Access Token (PAT)**:
+  1. On first run, app shows a setup screen with instructions
+  2. User creates a fine-grained PAT on github.com scoped to their notes repo with Contents read/write
+  3. User pastes the token and enters `owner/repo` in the app
+  4. App validates the token via `GET /user`, stores token + repo via Preferences DataStore
+- No OAuth infrastructure needed — no client ID, no device flow, no polling
+- Token scoped to a single repository by GitHub's PAT UI
+- To change repo or rotate token: sign out in settings and re-enter
+- See `docs/adr/001-pat-over-oauth.md` for why PAT was chosen over OAuth
 
 ### FR6: Lock Screen Launch ✅
 - App registers as an Android digital assistant via `VoiceInteractionService`
