@@ -77,7 +77,7 @@ fun AuthScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "1. Create a token scoped to your notes repo\n2. Grant Contents read & write permission\n3. Paste the token below",
+                text = "1. Create a token scoped to your notes repo\n2. Under Repository permissions, find Contents and select \"Read and write\" from the dropdown\n3. Paste the token below",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Start,
