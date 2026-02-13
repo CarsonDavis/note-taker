@@ -68,13 +68,13 @@ Minimal Android app for capturing notes and pushing them to a GitHub repo via th
 #### `ui/screens/`
 - `NoteInputScreen.kt` — Main note input (text field, submit with queued state, pending count, history)
 - `AuthScreen.kt` — PAT setup screen: token + repo input, validation
-- `SettingsScreen.kt` — Sign out, read-only repo display, digital assistant role detection
+- `SettingsScreen.kt` — Sign out, read-only repo display, digital assistant role detection, delete all data
 - `BrowseScreen.kt` — Read-only repo browser: directory listing, file viewer with markdown rendering
 
 #### `ui/viewmodels/`
 - `NoteViewModel.kt` — Note input state, queue-first submit, pending count, topic fetch
 - `AuthViewModel.kt` — PAT validation + setup flow
-- `SettingsViewModel.kt` — Settings state, sign out, role check
+- `SettingsViewModel.kt` — Settings state, sign out, role check, delete all data
 - `BrowseViewModel.kt` — Browse state: directory navigation, file viewing
 
 #### `ui/theme/`
@@ -98,6 +98,8 @@ Minimal Android app for capturing notes and pushing them to a GitHub repo via th
 - `docs/playstore/store-listing.md` — Store listing content: title, descriptions, keywords, visual asset specs
 - `docs/playstore/data-safety-declaration.md` — Data safety form answers for Play Console
 - `docs/playstore/privacy-policy.md` — Privacy policy for Play Store listing
+- `docs/playstore/delete-your-data.md` — User-facing data deletion instructions (linked from privacy policy, used as Play Store "Delete data URL")
+- `docs/playstore/data-collection.md` — Code-sourced technical reference of all user data the app touches, plus privacy policy audit
 
 ### CI/CD
 
@@ -105,4 +107,4 @@ Minimal Android app for capturing notes and pushing them to a GitHub repo via th
 
 ## Status
 
-M1-M22 complete. V1 features (M1-M11) verified on device. V2 adds offline note queuing with WorkManager retry (M12-M14) and a read-only repo browser with markdown rendering (M15-M16). M17 adds voice-first note input with auto-start speech recognition, continuous listening, and mode switching. M18 adds Play Store publishing docs, release signing config, and GitHub Actions CI/CD. M19 validates Play Store docs against codebase — corrects speech recognition "on-device" claims and adds keystore patterns to .gitignore. M20 is a pre-publication security audit: disables HTTP body logging in release, disables ADB backup, enables R8 minification with ProGuard rules. M21 fixes audiobook blip during speech recognizer restart by holding app-level audio focus for the entire voice session. M22 adds informative context to the auth screen and settings screen, and rewrites the Play Store listing to lead with the capture philosophy. All compiling.
+M1-M24 complete. V1 features (M1-M11) verified on device. V2 adds offline note queuing with WorkManager retry (M12-M14) and a read-only repo browser with markdown rendering (M15-M16). M17 adds voice-first note input with auto-start speech recognition, continuous listening, and mode switching. M18 adds Play Store publishing docs, release signing config, and GitHub Actions CI/CD. M19 validates Play Store docs against codebase — corrects speech recognition "on-device" claims and adds keystore patterns to .gitignore. M20 is a pre-publication security audit: disables HTTP body logging in release, disables ADB backup, enables R8 minification with ProGuard rules. M21 fixes audiobook blip during speech recognizer restart by holding app-level audio focus for the entire voice session. M22 adds informative context to the auth screen and settings screen, and rewrites the Play Store listing to lead with the capture philosophy. M23 adds a code-sourced data collection reference and audits the privacy policy against the codebase. M24 adds "Delete All Data" to the settings screen — wipes Room DB, DataStore, and WorkManager jobs with a confirmation dialog. All compiling.

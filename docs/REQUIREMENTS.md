@@ -42,6 +42,7 @@ Accessible from the top bar of the note input screen.
 - GitHub account — sign in / sign out
 - Repository — shown read-only (sign out to change)
 - Digital assistant setup — detect if app holds `ROLE_ASSISTANT`, guide user to system settings if not
+- Delete all data — wipe all local data (Room DB, DataStore, WorkManager jobs) with confirmation dialog
 
 ## Functional Requirements
 

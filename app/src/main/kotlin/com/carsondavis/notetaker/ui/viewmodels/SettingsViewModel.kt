@@ -4,7 +4,10 @@ import android.app.role.RoleManager
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.WorkManager
 import com.carsondavis.notetaker.data.auth.AuthManager
+import com.carsondavis.notetaker.data.local.PendingNoteDao
+import com.carsondavis.notetaker.data.local.SubmissionDao
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,7 +27,10 @@ data class SettingsUiState(
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val authManager: AuthManager
+    private val authManager: AuthManager,
+    private val submissionDao: SubmissionDao,
+    private val pendingNoteDao: PendingNoteDao,
+    private val workManager: WorkManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -62,6 +68,15 @@ class SettingsViewModel @Inject constructor(
 
     fun signOut() {
         viewModelScope.launch {
+            authManager.signOut()
+        }
+    }
+
+    fun clearAllData() {
+        viewModelScope.launch {
+            workManager.cancelAllWork()
+            pendingNoteDao.deleteAll()
+            submissionDao.deleteAll()
             authManager.signOut()
         }
     }

@@ -12,4 +12,7 @@ interface SubmissionDao {
 
     @Query("SELECT * FROM submissions ORDER BY timestamp DESC LIMIT 10")
     fun getRecent(): Flow<List<SubmissionEntity>>
+
+    @Query("DELETE FROM submissions")
+    suspend fun deleteAll()
 }

@@ -329,3 +329,32 @@ Added explanatory copy to two app screens and rewrote the Play Store listing to 
 
 **How verified:**
 - `./gradlew assembleDebug` → BUILD SUCCESSFUL
+
+## M23: Data Collection Reference & Privacy Policy Audit (2026-02-13)
+
+**What was built:**
+Code-sourced technical reference documenting every piece of user data the app touches — Room tables, DataStore keys, network endpoints, in-memory state, voice/audio handling, and what's NOT collected. Includes a privacy policy audit section cross-referencing `privacy-policy.md` against all source files.
+
+**Changes:**
+1. **Created `docs/playstore/data-collection.md`** — 6 sections: Room database (2 tables with all columns), Preferences DataStore (4 keys), network transmission (4 endpoints with sent/received data), in-memory only data, voice/audio handling, what's NOT collected. Each section references exact source files. Privacy policy audit section confirms the policy is accurate with no corrections needed.
+2. **INDEX.md** — Added entry for new file, updated status to M23.
+
+**Privacy policy audit result:**
+All claims in `privacy-policy.md` and `data-safety-declaration.md` verified accurate against code. No corrections needed. Notable observations documented: DataStore not encrypted at rest (policy doesn't claim it is), debug-only HTTP body logging (standard practice), submission preview field (covered by policy table).
+
+**How verified:**
+- All data claims cross-referenced against source files: `PendingNoteEntity.kt`, `SubmissionEntity.kt`, `AppDatabase.kt`, `AuthManager.kt`, `GitHubApi.kt`, `SpeechRecognizerManager.kt`, `AppModule.kt`, `AndroidManifest.xml`
+
+## M24: Delete All Data from Device (2026-02-13)
+
+**What was built:**
+"Delete All Data" option on the Settings screen that wipes all local app data from the device — Room database (submissions + pending notes), DataStore preferences (token, username, repo), and cancels pending WorkManager upload jobs. Notes already pushed to GitHub are unaffected. Includes a confirmation dialog.
+
+**Changes:**
+1. **`SubmissionDao.kt`** — Added `deleteAll()` query (`DELETE FROM submissions`)
+2. **`PendingNoteDao.kt`** — Added `deleteAll()` query (`DELETE FROM pending_notes`)
+3. **`SettingsViewModel.kt`** — Added `clearAllData()` method that cancels WorkManager jobs, deletes all pending notes, deletes all submissions, and clears auth. Injected `SubmissionDao`, `PendingNoteDao`, and `WorkManager` via constructor.
+4. **`SettingsScreen.kt`** — Added "Delete All Data" section at the bottom with description text and red button. Confirmation `AlertDialog` explains what will be deleted and that GitHub data is unaffected. On confirm, calls `clearAllData()` and navigates to auth screen.
+
+**How verified:**
+- `./gradlew assembleDebug` → BUILD SUCCESSFUL

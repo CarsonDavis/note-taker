@@ -21,4 +21,7 @@ interface PendingNoteDao {
 
     @Query("DELETE FROM pending_notes WHERE id = :id")
     suspend fun delete(id: Long)
+
+    @Query("DELETE FROM pending_notes")
+    suspend fun deleteAll()
 }

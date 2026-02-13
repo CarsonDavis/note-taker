@@ -1,6 +1,6 @@
 # Privacy Policy — Note Taker
 
-*Last updated: 2026-02-12*
+*Last updated: 2026-02-13*
 
 Note Taker is a free, open-source Android application developed by Carson Davis. This privacy policy describes how the app handles data.
 
@@ -67,7 +67,7 @@ Relevant third-party privacy policies:
 ## Your Rights
 
 You can:
-- **Delete local data** at any time: Android Settings → Apps → Note Taker → Clear data
+- **Delete local data** at any time from within the app — see [How to Delete Your Data](delete-your-data.md)
 - **Delete notes from GitHub** using GitHub's web interface, API, or git
 - **Revoke access** by deleting your personal access token on GitHub (Settings → Developer settings → Personal access tokens)
 - **Uninstall the app** to remove all local data from your device
