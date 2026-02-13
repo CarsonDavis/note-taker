@@ -10,42 +10,44 @@
 
 ## Short Description
 
-> Capture thoughts instantly — voice notes pushed straight to your GitHub repo.
+Capture thoughts instantly — voice notes pushed straight to your GitHub repo.
 
 
 ## Full Description
 
-> Note Taker is built on a simple idea: when a thought hits you, you should be able to capture it in seconds — no navigating, no typing. Press a button, speak, done.
->
-> **How it works**
-> Your notes are pushed as markdown files to a GitHub repository you control. Each note lands in your repo's inbox folder — plain text you own, ready to organize however you like.
->
-> **Instant capture from any state**
-> Set Note Taker as your digital assistant and long-press the side button to start recording. Voice recognition starts immediately so you can speak your thought before it slips away.
->
-> **Your notes, your repo**
-> Notes live as plain markdown files in a GitHub repository you own. No proprietary format, no vendor lock-in. Browse them in the app, on GitHub, or with any text editor. Full version history comes free with git.
->
-> **Privacy by design**
-> • Notes go directly to YOUR GitHub repo via HTTPS
-> • Speech recognition handled by your device's built-in speech service
-> • No analytics, no ads, no tracking
-> • No third-party services beyond the GitHub API
-> • Your GitHub token is stored locally in app-private storage
->
-> **Features**
-> • Voice-first input with continuous listening
-> • One-tap submission to GitHub
-> • Offline note queuing with automatic retry
-> • Repository browser with markdown rendering
-> • Current topic display from your repo
-> • Quick capture via side button
-> • Dark theme
->
-> **Getting started**
-> Create a blank GitHub repository for your notes (any name works), then create a fine-grained personal access token with Contents read/write permission scoped to that repo. The app walks you through the rest.
->
-> Note Taker is open source. View the code on [GitHub](https://github.com/CarsonDavis/note-taker). 
+```
+GitJot is built on a simple idea: when a thought hits you, you should be able to capture it in seconds — no navigating, no typing. Press a button, speak, done.
+
+How it works
+Your notes are pushed as markdown files to a GitHub repository you control. Each note lands in your repo's inbox folder — plain text you own, ready to organize however you like.
+
+Instant capture from any state
+Set GitJot as your digital assistant and long-press the side button to start recording. Voice recognition starts immediately so you can speak your thought before it slips away.
+
+Your notes, your repo
+Notes live as plain markdown files in a GitHub repository you own. No proprietary format, no vendor lock-in. Browse them in the app, on GitHub, or with any text editor. Full version history comes free with git.
+
+Privacy by design
+• Notes go directly to YOUR GitHub repo via HTTPS
+• Speech recognition handled by your device's built-in speech service
+• No analytics, no ads, no tracking
+• No third-party services beyond the GitHub API
+• Your GitHub token is stored locally in app-private storage
+
+Features
+• Voice-first input with continuous listening
+• One-tap submission to GitHub
+• Offline note queuing with automatic retry
+• Repository browser with markdown rendering
+• Current topic display from your repo
+• Quick capture via side button
+• Dark theme
+
+Getting started
+Create a blank GitHub repository for your notes (any name works), then create a fine-grained personal access token with Contents read/write permission scoped to that repo. The app walks you through the rest.
+
+GitJot is open source: https://github.com/CarsonDavis/note-taker
+``` 
 
 ## Keywords
 
