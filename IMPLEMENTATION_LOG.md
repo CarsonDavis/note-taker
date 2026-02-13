@@ -358,3 +358,21 @@ All claims in `privacy-policy.md` and `data-safety-declaration.md` verified accu
 
 **How verified:**
 - `./gradlew assembleDebug` → BUILD SUCCESSFUL
+
+## M25: Play Store Screenshots (2026-02-13)
+
+**What was built:**
+7 screenshots captured from Samsung Galaxy S24 Ultra (1440x3120 native) via ADB for the Play Store listing. Review repo (`CarsonDavis/notes-playstore-review`) populated with `.current_topic` ("The Selfish Gene"), a sample note submitted through the app, and `notes/chapter-3-summary.md` (rich markdown with headers, bold, italics, lists, blockquote) via GitHub API. Android demo mode used to clean status bar for captures.
+
+**Screenshots:**
+1. `01_voice_input.png` — Main screen in voice mode with "Listening..." indicator and topic bar
+2. `02_text_input.png` — Text field with note content and active Submit button
+3. `03_sent_success.png` — "Sent!" confirmation with checkmark
+4. `04_browse_folders.png` — Browse root: inbox/, notes/, .current_topic
+5. `05_browse_markdown.png` — Rendered chapter-3-summary.md with full markdown formatting
+6. `06_auth_setup.png` — Auth screen with PAT and repository fields populated
+7. `07_settings.png` — Settings: GitHub account, repository, digital assistant, delete all data
+
+**How verified:**
+- All 7 screenshots visually confirmed at 1440x3120 resolution
+- Play Store minimum is 1080x1920; native resolution exceeds requirement

@@ -90,7 +90,8 @@ Minimal Android app for capturing notes and pushing them to a GitHub repo via th
 - `docs/APP-TRIGGER.md` — Lock screen launch via VoiceInteractionService
 - `docs/ROADMAP.md` — Future features (v2+)
 - `docs/adr/001-pat-over-oauth.md` — ADR: why fine-grained PAT over OAuth/GitHub App
-- `docs/research/` — Research on assist API, lock screen, power button, GitHub OAuth
+- `docs/github-app-oauth-implementation.md` — Implementation plan for replacing PAT auth with GitHub App OAuth
+- `docs/research/` — Research on assist API, lock screen, power button, GitHub OAuth, GitHub App OAuth Option B
 
 ### Docs: Play Store
 
@@ -100,6 +101,22 @@ Minimal Android app for capturing notes and pushing them to a GitHub repo via th
 - `docs/playstore/privacy-policy.md` — Privacy policy for Play Store listing
 - `docs/playstore/delete-your-data.md` — User-facing data deletion instructions (linked from privacy policy, used as Play Store "Delete data URL")
 - `docs/playstore/data-collection.md` — Code-sourced technical reference of all user data the app touches, plus privacy policy audit
+- `docs/playstore/app-access-instructions.md` — Play Console "App access" credentials for reviewer (PAT + review repo)
+
+### Docs: Play Store Graphics
+
+- `docs/playstore/images/GitJot-icon-512x512.png` — App icon (512x512)
+- `docs/playstore/images/feature-graphic.png` — Feature graphic (1024x500)
+
+### Docs: Play Store Screenshots
+
+- `docs/playstore/screenshots/01_voice_input.png` — Voice input mode with "Listening..." indicator (1440x3120)
+- `docs/playstore/screenshots/02_text_input.png` — Note input with text and Submit button (1440x3120)
+- `docs/playstore/screenshots/03_sent_success.png` — "Sent!" success confirmation state (1440x3120)
+- `docs/playstore/screenshots/04_browse_folders.png` — Browse view: root directory listing (1440x3120)
+- `docs/playstore/screenshots/05_browse_markdown.png` — Browse view: rendered markdown file (1440x3120)
+- `docs/playstore/screenshots/06_auth_setup.png` — Auth setup screen with fields populated (1440x3120)
+- `docs/playstore/screenshots/07_settings.png` — Settings screen with account, repo, assistant, data deletion (1440x3120)
 
 ### CI/CD
 
@@ -107,4 +124,4 @@ Minimal Android app for capturing notes and pushing them to a GitHub repo via th
 
 ## Status
 
-M1-M24 complete. V1 features (M1-M11) verified on device. V2 adds offline note queuing with WorkManager retry (M12-M14) and a read-only repo browser with markdown rendering (M15-M16). M17 adds voice-first note input with auto-start speech recognition, continuous listening, and mode switching. M18 adds Play Store publishing docs, release signing config, and GitHub Actions CI/CD. M19 validates Play Store docs against codebase — corrects speech recognition "on-device" claims and adds keystore patterns to .gitignore. M20 is a pre-publication security audit: disables HTTP body logging in release, disables ADB backup, enables R8 minification with ProGuard rules. M21 fixes audiobook blip during speech recognizer restart by holding app-level audio focus for the entire voice session. M22 adds informative context to the auth screen and settings screen, and rewrites the Play Store listing to lead with the capture philosophy. M23 adds a code-sourced data collection reference and audits the privacy policy against the codebase. M24 adds "Delete All Data" to the settings screen — wipes Room DB, DataStore, and WorkManager jobs with a confirmation dialog. All compiling.
+M1-M25 complete. V1 features (M1-M11) verified on device. V2 adds offline note queuing with WorkManager retry (M12-M14) and a read-only repo browser with markdown rendering (M15-M16). M17 adds voice-first note input with auto-start speech recognition, continuous listening, and mode switching. M18 adds Play Store publishing docs, release signing config, and GitHub Actions CI/CD. M19 validates Play Store docs against codebase — corrects speech recognition "on-device" claims and adds keystore patterns to .gitignore. M20 is a pre-publication security audit: disables HTTP body logging in release, disables ADB backup, enables R8 minification with ProGuard rules. M21 fixes audiobook blip during speech recognizer restart by holding app-level audio focus for the entire voice session. M22 adds informative context to the auth screen and settings screen, and rewrites the Play Store listing to lead with the capture philosophy. M23 adds a code-sourced data collection reference and audits the privacy policy against the codebase. M24 adds "Delete All Data" to the settings screen — wipes Room DB, DataStore, and WorkManager jobs with a confirmation dialog. All compiling.
