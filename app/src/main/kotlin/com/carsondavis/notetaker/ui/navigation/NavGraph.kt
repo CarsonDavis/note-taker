@@ -29,16 +29,22 @@ fun AppNavGraph(
     authManager: AuthManager,
     initialRoute: String? = null
 ) {
-    val isAuthenticated by authManager.isAuthenticated.collectAsState(initial = false)
-    val hasRepo by authManager.hasRepo.collectAsState(initial = false)
+    // Use null initial to avoid flash — don't render until DataStore emits
+    val isAuthenticated by authManager.isAuthenticated.collectAsState(initial = null)
+    val hasRepo by authManager.hasRepo.collectAsState(initial = null)
+
+    // Wait for DataStore to emit before rendering
+    if (isAuthenticated == null || hasRepo == null) return
+
+    val authed = isAuthenticated == true && hasRepo == true
 
     val navController = rememberNavController()
 
-    val startDestination: Any = if (isAuthenticated && hasRepo) NoteRoute else AuthRoute
+    val startDestination: Any = if (authed) NoteRoute else AuthRoute
 
     // Handle initial route from intent extras (e.g. from NoteCaptureActivity)
     LaunchedEffect(initialRoute) {
-        if (initialRoute != null && isAuthenticated && hasRepo) {
+        if (initialRoute != null && authed) {
             when (initialRoute) {
                 "settings" -> navController.navigate(SettingsRoute)
                 "browse" -> navController.navigate(BrowseRoute)
@@ -51,7 +57,7 @@ fun AppNavGraph(
     LifecycleEventEffect(Lifecycle.Event.ON_START) {
         if (isFirstStart) {
             isFirstStart = false
-        } else if (isAuthenticated && hasRepo) {
+        } else if (authed) {
             navController.popBackStack(NoteRoute, inclusive = false)
         }
     }
