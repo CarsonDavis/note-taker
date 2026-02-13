@@ -10,49 +10,42 @@
 
 ## Short Description
 
-> Voice and text notes that sync to your GitHub repo — fast, private, offline-ready.
+> Capture thoughts instantly — voice notes pushed straight to your GitHub repo.
 
-(78 characters)
 
 ## Full Description
 
-> Note Taker is a fast, private note-taking app that pushes your notes directly to a GitHub repository. Open the app, speak or type your thought, and it's saved as a markdown file in your repo within seconds.
+> Note Taker is built on a simple idea: when a thought hits you, you should be able to capture it in seconds — no navigating, no typing. Press a button, speak, done.
 >
-> **How it works:**
-> Your notes are pushed to a GitHub repository you control using the GitHub Contents API. Each note becomes a markdown file in your repo's inbox/ folder. A personal access token (PAT) authenticates the connection — no OAuth, no third-party servers, no accounts to create.
+> **How it works**
+> Your notes are pushed as markdown files to a GitHub repository you control. Each note lands in your repo's inbox folder — plain text you own, ready to organize however you like.
 >
-> **Voice-first input:**
-> Tap the app and start speaking. Note Taker uses Android's built-in speech recognition to transcribe your words. No audio is recorded or stored by Note Taker. Switch to keyboard mode anytime by tapping the text field.
+> **Instant capture from any state**
+> Set Note Taker as your digital assistant and long-press the side button to start recording. Voice recognition starts immediately so you can speak your thought before it slips away.
 >
-> **Offline queuing:**
-> No internet? Notes are saved locally and automatically uploaded when connectivity returns. You'll never lose a thought.
+> **Your notes, your repo**
+> Notes live as plain markdown files in a GitHub repository you own. No proprietary format, no vendor lock-in. Browse them in the app, on GitHub, or with any text editor. Full version history comes free with git.
 >
-> **Browse your notes:**
-> View your entire repository from within the app. Navigate folders, read markdown files with full rendering, and review your note history.
+> **Privacy by design**
+> • Notes go directly to YOUR GitHub repo via HTTPS
+> • Speech recognition handled by your device's built-in speech service
+> • No analytics, no ads, no tracking
+> • No third-party services beyond the GitHub API
+> • Your GitHub token is stored locally in app-private storage
 >
-> **Privacy by design:**
-> - Notes go directly to YOUR GitHub repo via HTTPS
-> - Speech recognition handled by your device's built-in speech service
-> - No analytics, no ads, no tracking
-> - No third-party services beyond the GitHub API
-> - Your GitHub PAT is stored locally in app-private storage
->
-> **Features:**
-> • Voice and keyboard note input
+> **Features**
+> • Voice-first input with continuous listening
 > • One-tap submission to GitHub
 > • Offline note queuing with automatic retry
 > • Repository browser with markdown rendering
 > • Current topic display from your repo
-> • Lock screen quick capture (via digital assistant)
+> • Quick capture via side button
 > • Dark theme
 >
-> **Requirements:**
-> • A GitHub account with a repository for your notes
-> • A fine-grained personal access token (PAT) with Contents read/write permission
+> **Getting started**
+> Create a blank GitHub repository for your notes (any name works), then create a fine-grained personal access token with Contents read/write permission scoped to that repo. The app walks you through the rest.
 >
-> Note Taker is open source. View the code on GitHub.
-
-(~1,600 characters)
+> Note Taker is open source. View the code on [GitHub](https://github.com/CarsonDavis/note-taker). 
 
 ## Keywords
 

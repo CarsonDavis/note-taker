@@ -136,6 +136,16 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(vertical = 8.dp)
             )
+            Text(
+                text = if (uiState.isAssistantDefault) {
+                    "Long-press the side button opens Note Taker from any screen."
+                } else {
+                    "Set Note Taker as your digital assistant to long-press the side button and instantly start recording. Replaces Google Assistant on the side button. \"Hey Google\" voice activation still works."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (uiState.isAssistantDefault) {
                     Icon(

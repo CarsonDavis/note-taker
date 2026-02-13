@@ -70,14 +70,21 @@ fun AuthScreen(
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "To get started, create a fine-grained Personal Access Token on GitHub:",
+                text = "Your voice notes are saved as markdown files in a GitHub repository you own. Just talk — your words go straight to your repo.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "1. Create a token scoped to your notes repo\n2. Under Repository permissions, find Contents and select \"Read and write\" from the dropdown\n3. Paste the token below",
+                text = "To connect, you'll need a repository for your notes and a personal access token.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "1. Create a blank GitHub repository for your notes (any name works)\n2. Create a fine-grained personal access token scoped to that repo\n3. Under Repository permissions, find Contents and select \"Read and write\"\n4. Paste the token below",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Start,
