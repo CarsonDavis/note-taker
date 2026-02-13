@@ -304,3 +304,15 @@ PAT not encrypted at rest (sandbox protection sufficient), no certificate pinnin
 **How verified:**
 - `./gradlew assembleDebug` → BUILD SUCCESSFUL
 - `./gradlew assembleRelease` → BUILD SUCCESSFUL (R8 minification runs without errors)
+
+## M21: Fix audiobook blip during speech recognizer restart (2026-02-13)
+
+**What was built:**
+App-level audio focus hold in `SpeechRecognizerManager` to prevent audiobook players from briefly resuming during the 150ms recognizer restart gap. The recognizer's internal audio focus release/re-acquire during `restart()` no longer reaches other apps because our app stays in the audio focus stack above them.
+
+**Changes:**
+- `SpeechRecognizerManager.kt` — Added `AudioManager` + `AudioFocusRequest` fields (`AUDIOFOCUS_GAIN_TRANSIENT`, `USAGE_ASSISTANT`, `CONTENT_TYPE_SPEECH`). Request focus in `start()` before creating recognizer. Abandon focus in `stop()` after stopping recognizer. `destroy()` already calls `stop()`, so it's covered.
+
+**How verified:**
+- `./gradlew assembleDebug` → BUILD SUCCESSFUL
+- On-device testing needed: play audiobook → open note-taker in voice mode → audiobook should stay paused through recognizer restarts → switch to keyboard or leave app → audiobook should resume

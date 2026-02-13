@@ -27,7 +27,7 @@ Minimal Android app for capturing notes and pushing them to a GitHub repo via th
 - `NoteCaptureActivity.kt` — Lock screen entry (showWhenLocked, turnScreenOn)
 
 #### `speech/`
-- `SpeechRecognizerManager.kt` — Encapsulates Android SpeechRecognizer with continuous listening, auto-restart, and state flows
+- `SpeechRecognizerManager.kt` — Encapsulates Android SpeechRecognizer with continuous listening, auto-restart, app-level audio focus hold, and state flows
 
 #### `assist/` — VoiceInteractionService (digital assistant registration)
 - `NoteAssistService.kt` — Handles lock screen launch (`onLaunchVoiceAssistFromKeyguard`)
@@ -105,4 +105,4 @@ Minimal Android app for capturing notes and pushing them to a GitHub repo via th
 
 ## Status
 
-M1-M20 complete. V1 features (M1-M11) verified on device. V2 adds offline note queuing with WorkManager retry (M12-M14) and a read-only repo browser with markdown rendering (M15-M16). M17 adds voice-first note input with auto-start speech recognition, continuous listening, and mode switching. M18 adds Play Store publishing docs, release signing config, and GitHub Actions CI/CD. M19 validates Play Store docs against codebase — corrects speech recognition "on-device" claims and adds keystore patterns to .gitignore. M20 is a pre-publication security audit: disables HTTP body logging in release, disables ADB backup, enables R8 minification with ProGuard rules. All compiling.
+M1-M21 complete. V1 features (M1-M11) verified on device. V2 adds offline note queuing with WorkManager retry (M12-M14) and a read-only repo browser with markdown rendering (M15-M16). M17 adds voice-first note input with auto-start speech recognition, continuous listening, and mode switching. M18 adds Play Store publishing docs, release signing config, and GitHub Actions CI/CD. M19 validates Play Store docs against codebase — corrects speech recognition "on-device" claims and adds keystore patterns to .gitignore. M20 is a pre-publication security audit: disables HTTP body logging in release, disables ADB backup, enables R8 minification with ProGuard rules. M21 fixes audiobook blip during speech recognizer restart by holding app-level audio focus for the entire voice session. All compiling.

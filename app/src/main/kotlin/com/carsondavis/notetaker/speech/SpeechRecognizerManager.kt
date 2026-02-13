@@ -2,6 +2,9 @@ package com.carsondavis.notetaker.speech
 
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -23,6 +26,16 @@ class SpeechRecognizerManager(
 ) {
     private var recognizer: SpeechRecognizer? = null
     private val handler = Handler(Looper.getMainLooper())
+    private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    private val focusRequest: AudioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+        .setAudioAttributes(
+            AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ASSISTANT)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build()
+        )
+        .setOnAudioFocusChangeListener { /* held for entire session */ }
+        .build()
 
     private val _listeningState = MutableStateFlow(ListeningState.IDLE)
     val listeningState: StateFlow<ListeningState> = _listeningState.asStateFlow()
@@ -103,6 +116,7 @@ class SpeechRecognizerManager(
             onError("Speech recognition not available")
             return
         }
+        audioManager.requestAudioFocus(focusRequest)
         createAndStart()
     }
 
@@ -113,6 +127,7 @@ class SpeechRecognizerManager(
         try {
             recognizer?.stopListening()
         } catch (_: Exception) {}
+        audioManager.abandonAudioFocusRequest(focusRequest)
     }
 
     fun destroy() {
