@@ -106,6 +106,16 @@ Accessible from the top bar of the note input screen.
 - From lock screen, browse icon triggers `requestDismissKeyguard()` → opens in MainActivity
 - Empty state, error state with retry, loading indicator
 
+### FR9: Voice-First Input
+- App auto-starts speech recognition when NoteInputScreen appears (on resume)
+- Words stream into the text field in real time (partial → finalized segments)
+- Continuous listening: no timeout, auto-restarts between speech segments
+- Mode switching: tap text field → keyboard mode; tap mic button → voice mode; text preserved across switches
+- Permission denied or SpeechRecognizer unavailable → falls back to keyboard-only mode
+- Submit while listening: stops voice, submits, clears, restarts voice
+- App backgrounded: ON_PAUSE stops recognizer, ON_RESUME restarts
+- App always returns to NoteInputScreen when brought to foreground
+
 ### Lock Screen Security ✅
 Two-tier model (same pattern as the camera app):
 1. **Quick capture (no auth)** — note input works over the lock screen

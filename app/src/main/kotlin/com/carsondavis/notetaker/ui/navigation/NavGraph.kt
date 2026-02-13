@@ -4,6 +4,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -38,6 +43,16 @@ fun AppNavGraph(
                 "settings" -> navController.navigate(SettingsRoute)
                 "browse" -> navController.navigate(BrowseRoute)
             }
+        }
+    }
+
+    // Always return to NoteRoute when app comes back from background
+    var isFirstStart by rememberSaveable { mutableStateOf(true) }
+    LifecycleEventEffect(Lifecycle.Event.ON_START) {
+        if (isFirstStart) {
+            isFirstStart = false
+        } else if (isAuthenticated && hasRepo) {
+            navController.popBackStack(NoteRoute, inclusive = false)
         }
     }
 

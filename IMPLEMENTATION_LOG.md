@@ -218,3 +218,22 @@
 
 **How verified:**
 - `./gradlew assembleDebug` → BUILD SUCCESSFUL
+
+## M17: Voice-First Note Input (2026-02-12)
+
+**What was built:**
+- `SpeechRecognizerManager` — new class encapsulating Android `SpeechRecognizer` lifecycle with continuous listening. Auto-restarts on `onResults()`, `ERROR_NO_MATCH`, and `ERROR_SPEECH_TIMEOUT`. Real errors (audio, network, server) stop listening and notify UI. Exposes `listeningState: StateFlow` and `partialText: StateFlow`.
+- `NoteViewModel` — added `@ApplicationContext` for SpeechRecognizerManager. New state fields: `inputMode` (VOICE/KEYBOARD), `listeningState`, `speechAvailable`, `permissionGranted`. Text accumulation: finalized speech segments joined with spaces, partial text appended for display. Methods: `onPermissionResult()`, `startVoiceInput()`, `switchToKeyboard()`, `stopVoiceInput()`. Submit stops voice, submits, clears, and restarts voice.
+- `NoteInputScreen` — permission request via `rememberLauncherForActivityResult` on first composition. `LifecycleEventEffect(ON_RESUME)` starts voice, `ON_PAUSE` stops it. Listening indicator (red mic icon + "Listening...") above text field in voice mode. `onFocusChanged` on text field switches to keyboard mode. Mic button next to Submit in keyboard mode. Text field `readOnly` in voice mode.
+- `NavGraph` — `LifecycleEventEffect(ON_START)` with `rememberSaveable` flag pops back to NoteRoute when app returns from background (skips first start).
+- `AndroidManifest.xml` — added `RECORD_AUDIO` permission.
+
+**Edge cases handled:**
+- Permission denied → keyboard-only fallback, mic button hidden
+- SpeechRecognizer unavailable → keyboard-only fallback
+- Submit while listening → stops, submits, clears, restarts voice
+- App backgrounded → ON_PAUSE stops recognizer, ON_RESUME restarts
+- Network/server errors → stops listening, shows error via snackbar
+
+**How verified:**
+- `./gradlew assembleDebug` → BUILD SUCCESSFUL

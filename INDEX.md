@@ -25,6 +25,9 @@ Minimal Android app for capturing notes and pushing them to a GitHub repo via th
 - `MainActivity.kt` — Main launcher activity, hosts NavGraph
 - `NoteCaptureActivity.kt` — Lock screen entry (showWhenLocked, turnScreenOn)
 
+#### `speech/`
+- `SpeechRecognizerManager.kt` — Encapsulates Android SpeechRecognizer with continuous listening, auto-restart, and state flows
+
 #### `assist/` — VoiceInteractionService (digital assistant registration)
 - `NoteAssistService.kt` — Handles lock screen launch (`onLaunchVoiceAssistFromKeyguard`)
 - `NoteAssistSessionService.kt` — Session factory (boilerplate)
@@ -90,4 +93,4 @@ Minimal Android app for capturing notes and pushing them to a GitHub repo via th
 
 ## Status
 
-M1-M16 complete. V1 features (M1-M11) verified on device. V2 adds offline note queuing with WorkManager retry (M12-M14) and a read-only repo browser with markdown rendering (M15-M16). All compiling.
+M1-M17 complete. V1 features (M1-M11) verified on device. V2 adds offline note queuing with WorkManager retry (M12-M14) and a read-only repo browser with markdown rendering (M15-M16). M17 adds voice-first note input with auto-start speech recognition, continuous listening, and mode switching. All compiling.
