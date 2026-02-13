@@ -316,3 +316,16 @@ App-level audio focus hold in `SpeechRecognizerManager` to prevent audiobook pla
 **How verified:**
 - `./gradlew assembleDebug` → BUILD SUCCESSFUL
 - On-device testing needed: play audiobook → open note-taker in voice mode → audiobook should stay paused through recognizer restarts → switch to keyboard or leave app → audiobook should resume
+
+## M22: Add Informative Context to App & Play Store Listing (2026-02-13)
+
+**What was built:**
+Added explanatory copy to two app screens and rewrote the Play Store listing to lead with philosophy and explain the capture workflow.
+
+**Changes:**
+1. **AuthScreen.kt** — Added two intro paragraphs between the "Note Taker" title and the PAT setup steps. First explains what the app does ("voice notes saved as markdown in your GitHub repo"), second introduces what's needed ("repository + personal access token"). Existing step numbering unchanged, just removed the redundant "To get started..." lead-in.
+2. **SettingsScreen.kt** — Added explanatory `Text` (bodySmall, onSurfaceVariant) between the "Digital Assistant" title and the status row. When not set as default: explains side-button launch, lock screen access, Google Assistant tradeoff, "Hey Google" still works. When set as default: shorter confirmation of what's enabled.
+3. **store-listing.md** — Rewrote short description ("Capture thoughts instantly — voice notes pushed straight to your GitHub repo.") and full description. New structure: opening hook (philosophy), how it works (markdown to GitHub), instant capture (side button), your notes/your repo (why GitHub), privacy by design, features, getting started. ~1,650 characters (well under 4,000 limit).
+
+**How verified:**
+- `./gradlew assembleDebug` → BUILD SUCCESSFUL

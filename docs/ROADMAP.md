@@ -10,6 +10,9 @@ Read-only repo browser with directory listing, file viewer, and Markwon markdown
 
 ## V3 Features
 
+### Donate / Tip Button
+In-app option for users to support development. Could be a simple link to GitHub Sponsors, Buy Me a Coffee, or similar. No in-app purchases — just an external link.
+
 ### Smarter Topic Refresh
 Currently the topic refreshes on app launch and after each note submission. This won't catch topic changes that happen between submissions (e.g., the LLM agent processes a "new topic" note while the app is sitting open). Need a better mechanism:
 
