@@ -143,10 +143,9 @@ fun NoteInputScreen(
                 onBrowseClick = onBrowseClick
             )
 
+            // Text field area
             Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 16.dp)
+                modifier = Modifier.padding(horizontal = 16.dp)
             ) {
                 // Listening indicator
                 if (uiState.inputMode == InputMode.VOICE) {
@@ -200,113 +199,122 @@ fun NoteInputScreen(
                     ),
                     readOnly = uiState.inputMode == InputMode.VOICE
                 )
+            }
 
-                Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.weight(1f))
 
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center
+            // Submit button + mic
+            Column(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Button(
-                                onClick = { viewModel.submit() },
-                                enabled = uiState.noteText.isNotBlank() && !uiState.isSubmitting
-                                        && !uiState.submitSuccess && !uiState.submitQueued,
-                                colors = when {
-                                    uiState.submitSuccess -> ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.tertiary,
-                                        contentColor = MaterialTheme.colorScheme.onTertiary
-                                    )
-                                    uiState.submitQueued -> ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.secondary,
-                                        contentColor = MaterialTheme.colorScheme.onSecondary
-                                    )
-                                    else -> ButtonDefaults.buttonColors()
-                                }
-                            ) {
-                                AnimatedContent(
-                                    targetState = when {
-                                        uiState.submitSuccess -> "success"
-                                        uiState.submitQueued -> "queued"
-                                        uiState.isSubmitting -> "submitting"
-                                        else -> "idle"
-                                    },
-                                    transitionSpec = {
-                                        (fadeIn() + scaleIn(initialScale = 0.8f))
-                                            .togetherWith(fadeOut() + scaleOut(targetScale = 0.8f))
-                                    },
-                                    label = "submitButton"
-                                ) { state ->
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        when (state) {
-                                            "submitting" -> {
-                                                CircularProgressIndicator(
-                                                    modifier = Modifier.size(16.dp),
-                                                    strokeWidth = 2.dp,
-                                                    color = MaterialTheme.colorScheme.onPrimary
-                                                )
-                                                Spacer(modifier = Modifier.width(8.dp))
-                                                Text("Saving")
-                                            }
-                                            "success" -> {
-                                                Icon(
-                                                    imageVector = Icons.Default.Check,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(8.dp))
-                                                Text("Sent!")
-                                            }
-                                            "queued" -> {
-                                                Icon(
-                                                    imageVector = Icons.Default.Schedule,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(8.dp))
-                                                Text("Queued")
-                                            }
-                                            else -> {
-                                                Text("Submit")
-                                            }
-                                        }
+                    Button(
+                        onClick = { viewModel.submit() },
+                        enabled = uiState.noteText.isNotBlank() && !uiState.isSubmitting
+                                && !uiState.submitSuccess && !uiState.submitQueued,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(72.dp),
+                        colors = when {
+                            uiState.submitSuccess -> ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.tertiary,
+                                contentColor = MaterialTheme.colorScheme.onTertiary
+                            )
+                            uiState.submitQueued -> ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.secondary,
+                                contentColor = MaterialTheme.colorScheme.onSecondary
+                            )
+                            else -> ButtonDefaults.buttonColors()
+                        }
+                    ) {
+                        AnimatedContent(
+                            targetState = when {
+                                uiState.submitSuccess -> "success"
+                                uiState.submitQueued -> "queued"
+                                uiState.isSubmitting -> "submitting"
+                                else -> "idle"
+                            },
+                            transitionSpec = {
+                                (fadeIn() + scaleIn(initialScale = 0.8f))
+                                    .togetherWith(fadeOut() + scaleOut(targetScale = 0.8f))
+                            },
+                            label = "submitButton"
+                        ) { state ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                when (state) {
+                                    "submitting" -> {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(18.dp),
+                                            strokeWidth = 2.dp,
+                                            color = MaterialTheme.colorScheme.onPrimary
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Saving", style = MaterialTheme.typography.titleLarge)
                                     }
-                                }
-                            }
-
-                            // Mic button — show in keyboard mode when permission granted
-                            if (uiState.inputMode == InputMode.KEYBOARD
-                                && uiState.permissionGranted
-                                && uiState.speechAvailable
-                            ) {
-                                Spacer(modifier = Modifier.width(8.dp))
-                                IconButton(
-                                    onClick = {
-                                        focusManager.clearFocus()
-                                        viewModel.startVoiceInput()
+                                    "success" -> {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Sent!", style = MaterialTheme.typography.titleLarge)
                                     }
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Mic,
-                                        contentDescription = "Switch to voice input",
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
+                                    "queued" -> {
+                                        Icon(
+                                            imageVector = Icons.Default.Schedule,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Queued", style = MaterialTheme.typography.titleLarge)
+                                    }
+                                    else -> {
+                                        Text("Submit", style = MaterialTheme.typography.titleLarge)
+                                    }
                                 }
                             }
                         }
+                    }
 
-                        if (uiState.pendingCount > 0) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "${uiState.pendingCount} note${if (uiState.pendingCount != 1) "s" else ""} queued",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                    // Mic button — show in keyboard mode when permission granted
+                    if (uiState.inputMode == InputMode.KEYBOARD
+                        && uiState.permissionGranted
+                        && uiState.speechAvailable
+                    ) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        IconButton(
+                            onClick = {
+                                focusManager.clearFocus()
+                                viewModel.startVoiceInput()
+                            },
+                            modifier = Modifier.size(72.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Mic,
+                                contentDescription = "Switch to voice input",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(28.dp)
                             )
                         }
                     }
                 }
+
+                if (uiState.pendingCount > 0) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "${uiState.pendingCount} note${if (uiState.pendingCount != 1) "s" else ""} queued",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
+
+            Spacer(modifier = Modifier.weight(0.6f))
 
             SubmissionHistory(items = uiState.submissions)
         }
