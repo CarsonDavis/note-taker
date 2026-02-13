@@ -237,3 +237,70 @@
 
 **How verified:**
 - `./gradlew assembleDebug` → BUILD SUCCESSFUL
+
+## M18: Play Store Publishing Docs + CI/CD (2026-02-12)
+
+**What was built:**
+- `docs/playstore/checklist.md` — 7-phase publishing checklist: prerequisites, materials, build, Play Console setup, testing track (12-tester requirement), first release, CI/CD setup with service account instructions
+- `docs/playstore/store-listing.md` — Store listing content: title, short/full descriptions, IARC questionnaire answers (Everyone rating), visual asset specs, keywords, contact info placeholders
+- `docs/playstore/data-safety-declaration.md` — Data safety form answers covering all Play Console data types. Key declarations: collects note text and GitHub username, transmits note text to GitHub API over HTTPS, no audio collected (RECORD_AUDIO used for SpeechRecognizer API), no analytics/ads/crash reporting
+- `docs/playstore/privacy-policy.md` — Full privacy policy suitable for Play Store listing. Covers data access, transmission, local storage, speech recognition, third-party services (GitHub API only), user rights (delete, revoke, uninstall)
+- `app/build.gradle.kts` — Added release signing config reading from env vars (KEYSTORE_FILE, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD) with null check so local builds still work unsigned. Added env-var-based versioning (VERSION_CODE, VERSION_NAME) with fallback defaults
+- `.github/workflows/release.yml` — GitHub Actions workflow triggered on `v*` tag push. Steps: checkout, JDK 21, Gradle with caching, version extraction from tag (v1.2.3 → versionCode 10203), keystore decode from base64 secret, signed AAB build, upload to Play Store internal track via r0adkll/upload-google-play@v1, attach AAB to GitHub release
+- `docs/ROADMAP.md` — Added "Donate / Tip Button" as a V3 feature
+
+**GitHub Secrets required (6):**
+KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD, PLAY_SERVICE_ACCOUNT_JSON, PLAY_PACKAGE_NAME
+
+**How verified:**
+- `./gradlew assembleDebug` → BUILD SUCCESSFUL (signing config is no-op without env vars)
+- `./gradlew bundleRelease` → BUILD SUCCESSFUL, produces `app-release.aab` (13.7 MB)
+- Workflow YAML validated for correct syntax and step dependencies
+- All docs cross-reference each other consistently and match actual app permissions (INTERNET, RECORD_AUDIO) and data flows
+
+**Key notes:**
+- First AAB must be uploaded manually via Play Console — the GitHub Action requires the app to already exist
+- RECORD_AUDIO triggers a Permissions Declaration Form during review (justification: speech-to-text via Android SpeechRecognizer, no audio stored by app), may add 1-2 weeks
+- Personal accounts created after Nov 2023 need 14-day closed test with 12 testers before production access
+
+## M19: Play Store Docs — Codebase Validation Fixes (2026-02-12)
+
+**What was built:**
+Validated all 4 Play Store documents against the actual codebase. Found and fixed 2 issues:
+
+1. **Speech recognition "on-device" claims corrected** — The code uses `SpeechRecognizer.createSpeechRecognizer(context)` (the default recognizer), which delegates to the device's speech service (typically Google) and may process audio in the cloud. Updated 3 docs to remove "on-device only" / "entirely on-device" claims and accurately state that speech processing is handled by the device's default speech service:
+   - `docs/playstore/privacy-policy.md` — Updated Speech Recognition section heading and body; added Google Speech Services to Third-Party Services section
+   - `docs/playstore/data-safety-declaration.md` — Updated Audio section note, summary statement, and data flow diagram
+   - `docs/playstore/store-listing.md` — Updated voice-first input paragraph and privacy bullet
+
+2. **Keystore patterns added to `.gitignore`** — `checklist.md` line 44 claimed keystore files were already in `.gitignore`, but they weren't. Added `*.jks` and `*.keystore` patterns.
+
+**Also noted (not fixed — requires user action):**
+- `store-listing.md` line 103 has placeholder email `[your-support-email@example.com]` — must be replaced before publishing
+
+**How verified:**
+- Re-read all 4 modified files to confirm accuracy against codebase
+- Confirmed `SpeechRecognizerManager.kt` uses `SpeechRecognizer.createSpeechRecognizer(context)` (not `createOnDeviceSpeechRecognizer`)
+- Confirmed `.gitignore` now includes `*.jks` and `*.keystore`
+
+## M20: Pre-Publication Security Audit (2026-02-12)
+
+**What was built:**
+Pre-publication security review before Play Store release. Three issues fixed:
+
+1. **HTTP body logging disabled in release** — `HttpLoggingInterceptor.Level.BODY` was set unconditionally, leaking the PAT (Authorization header) to logcat. Now conditionally set: `BODY` in debug, `NONE` in release. Added `buildConfig = true` to `buildFeatures` so `BuildConfig.DEBUG` is available.
+2. **ADB backup disabled** — `android:allowBackup="true"` allowed `adb backup` to extract the entire DataStore (with plaintext PAT) without root. Set to `false`.
+3. **R8/ProGuard enabled for release** — `isMinifyEnabled` was `false`, leaving full class/method names in the release AAB. Enabled minification with keep rules for Retrofit, kotlinx.serialization, Hilt, Room, and Markwon.
+
+**Files changed:**
+- `app/build.gradle.kts` — `buildConfig = true`, `isMinifyEnabled = true`, `proguardFiles()`
+- `app/src/main/kotlin/com/carsondavis/notetaker/di/AppModule.kt` — conditional logging level via `BuildConfig.DEBUG`
+- `app/src/main/AndroidManifest.xml` — `allowBackup="false"`
+- `app/proguard-rules.pro` — new file with keep rules
+
+**Issues reviewed and accepted (no fix needed):**
+PAT not encrypted at rest (sandbox protection sufficient), no certificate pinning (standard practice), Markwon XSS (TextView not WebView), browse path traversal (GitHub API is trust boundary), exported assist services (system-only permissions), lock screen capture (by design), no FLAG_SECURE (user control), unencrypted Room DB (no credentials), error message leaks (no PAT in messages), MainActivity ASSIST intent (required for feature).
+
+**How verified:**
+- `./gradlew assembleDebug` → BUILD SUCCESSFUL
+- `./gradlew assembleRelease` → BUILD SUCCESSFUL (R8 minification runs without errors)

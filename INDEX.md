@@ -14,7 +14,8 @@ Minimal Android app for capturing notes and pushing them to a GitHub repo via th
 
 ### `app/` — Android Application Module
 
-- `app/build.gradle.kts` — App module build config (SDK versions, dependencies)
+- `app/build.gradle.kts` — App module build config (SDK versions, dependencies, R8 minification)
+- `app/proguard-rules.pro` — R8/ProGuard keep rules for Retrofit, kotlinx.serialization, Hilt, Room, Markwon
 - `app/src/main/AndroidManifest.xml` — App manifest (activities, services, permissions)
 - `app/src/main/res/values/strings.xml` — String resources
 - `app/src/main/res/xml/assist_service.xml` — VoiceInteractionService config
@@ -91,6 +92,17 @@ Minimal Android app for capturing notes and pushing them to a GitHub repo via th
 - `docs/adr/001-pat-over-oauth.md` — ADR: why fine-grained PAT over OAuth/GitHub App
 - `docs/research/` — Research on assist API, lock screen, power button, GitHub OAuth
 
+### Docs: Play Store
+
+- `docs/playstore/checklist.md` — Step-by-step Play Store publishing checklist (7 phases)
+- `docs/playstore/store-listing.md` — Store listing content: title, descriptions, keywords, visual asset specs
+- `docs/playstore/data-safety-declaration.md` — Data safety form answers for Play Console
+- `docs/playstore/privacy-policy.md` — Privacy policy for Play Store listing
+
+### CI/CD
+
+- `.github/workflows/release.yml` — GitHub Actions: build signed AAB and upload to Google Play on `v*` tag push
+
 ## Status
 
-M1-M17 complete. V1 features (M1-M11) verified on device. V2 adds offline note queuing with WorkManager retry (M12-M14) and a read-only repo browser with markdown rendering (M15-M16). M17 adds voice-first note input with auto-start speech recognition, continuous listening, and mode switching. All compiling.
+M1-M20 complete. V1 features (M1-M11) verified on device. V2 adds offline note queuing with WorkManager retry (M12-M14) and a read-only repo browser with markdown rendering (M15-M16). M17 adds voice-first note input with auto-start speech recognition, continuous listening, and mode switching. M18 adds Play Store publishing docs, release signing config, and GitHub Actions CI/CD. M19 validates Play Store docs against codebase — corrects speech recognition "on-device" claims and adds keystore patterns to .gitignore. M20 is a pre-publication security audit: disables HTTP body logging in release, disables ADB backup, enables R8 minification with ProGuard rules. All compiling.

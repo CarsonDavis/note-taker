@@ -129,6 +129,7 @@ Two-tier model (same pattern as the camera app):
 - **Theme**: Dark mode only
 - **Simplicity**: Minimal UI — this is a capture tool, not a note management app
 - **Speed**: App should open and be ready to type within 1-2 seconds
+- **Security**: HTTP logging disabled in release builds, ADB backup disabled, R8 minification enabled (M20 audit)
 
 ## Out of Scope
 
