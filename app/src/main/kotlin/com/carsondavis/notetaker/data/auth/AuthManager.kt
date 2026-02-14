@@ -1,6 +1,7 @@
 package com.carsondavis.notetaker.data.auth
 
 import android.content.Context
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -21,6 +22,7 @@ class AuthManager @Inject constructor(
         val USERNAME = stringPreferencesKey("username")
         val REPO_OWNER = stringPreferencesKey("repo_owner")
         val REPO_NAME = stringPreferencesKey("repo_name")
+        val ONBOARDING_SHOWN = booleanPreferencesKey("onboarding_shown")
     }
 
     val accessToken: Flow<String?> = context.dataStore.data.map { it[Keys.ACCESS_TOKEN] }
@@ -36,6 +38,10 @@ class AuthManager @Inject constructor(
         it[Keys.REPO_OWNER] != null && it[Keys.REPO_NAME] != null
     }
 
+    val onboardingShown: Flow<Boolean> = context.dataStore.data.map {
+        it[Keys.ONBOARDING_SHOWN] == true
+    }
+
     suspend fun saveAuth(token: String, username: String) {
         context.dataStore.edit {
             it[Keys.ACCESS_TOKEN] = token
@@ -47,6 +53,12 @@ class AuthManager @Inject constructor(
         context.dataStore.edit {
             it[Keys.REPO_OWNER] = owner
             it[Keys.REPO_NAME] = name
+        }
+    }
+
+    suspend fun markOnboardingShown() {
+        context.dataStore.edit {
+            it[Keys.ONBOARDING_SHOWN] = true
         }
     }
 

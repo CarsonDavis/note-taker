@@ -3,6 +3,7 @@ package com.carsondavis.notetaker.ui.viewmodels
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.carsondavis.notetaker.data.auth.AuthManager
 import com.carsondavis.notetaker.data.repository.NoteRepository
 import com.carsondavis.notetaker.data.repository.SubmitResult
 import com.carsondavis.notetaker.speech.ListeningState
@@ -13,6 +14,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -41,10 +43,13 @@ data class NoteUiState(
 @HiltViewModel
 class NoteViewModel @Inject constructor(
     private val repository: NoteRepository,
+    private val authManager: AuthManager,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(NoteUiState())
+    private val _showOnboarding = MutableStateFlow(false)
+    val showOnboarding: StateFlow<Boolean> = _showOnboarding.asStateFlow()
     val uiState: StateFlow<NoteUiState> = _uiState.asStateFlow()
 
     private val timeFormatter = DateTimeFormatter.ofPattern("h:mm a")
@@ -72,6 +77,23 @@ class NoteViewModel @Inject constructor(
         observePendingCount()
         observeSpeechState()
         fetchTopic()
+        checkOnboarding()
+    }
+
+    private fun checkOnboarding() {
+        viewModelScope.launch {
+            val shown = authManager.onboardingShown.first()
+            if (!shown) {
+                _showOnboarding.value = true
+            }
+        }
+    }
+
+    fun dismissOnboarding() {
+        _showOnboarding.value = false
+        viewModelScope.launch {
+            authManager.markOnboardingShown()
+        }
     }
 
     private fun observeSubmissions() {

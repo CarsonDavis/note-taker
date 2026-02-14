@@ -97,7 +97,8 @@ fun AppNavGraph(
 
         composable<BrowseRoute> {
             BrowseScreen(
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onSettingsClick = { navController.navigate(SettingsRoute) }
             )
         }
     }

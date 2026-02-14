@@ -42,6 +42,15 @@ interface GitHubApi {
         @Path("repo") repo: String
     ): List<GitHubDirectoryEntry>
 
+    // --- Repository ---
+
+    @GET("repos/{owner}/{repo}")
+    suspend fun getRepository(
+        @Header("Authorization") auth: String,
+        @Path("owner") owner: String,
+        @Path("repo") repo: String
+    ): GitHubRepository
+
     @PUT("repos/{owner}/{repo}/contents/{path}")
     suspend fun createFile(
         @Header("Authorization") auth: String,
@@ -51,6 +60,14 @@ interface GitHubApi {
         @Body request: CreateFileRequest
     ): CreateFileResponse
 }
+
+// --- Repository model ---
+
+@Serializable
+data class GitHubRepository(
+    val id: Long,
+    @SerialName("full_name") val fullName: String
+)
 
 // --- Request/Response models ---
 

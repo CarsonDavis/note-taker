@@ -2,18 +2,23 @@ package com.carsondavis.notetaker.ui.screens
 
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -25,6 +30,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -44,6 +50,25 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.carsondavis.notetaker.ui.viewmodels.AuthViewModel
 
 @Composable
+private fun StepHeader(stepNumber: Int, title: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(bottom = 8.dp)
+    ) {
+        Text(
+            text = "$stepNumber",
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium
+        )
+    }
+}
+
+@Composable
 fun AuthScreen(
     onAuthComplete: () -> Unit,
     viewModel: AuthViewModel = hiltViewModel()
@@ -51,6 +76,9 @@ fun AuthScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     var tokenVisible by remember { mutableStateOf(false) }
+    var showPatDialog by remember { mutableStateOf(false) }
+    var showTokenHelpDialog by remember { mutableStateOf(false) }
+    var showRepoHelpDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.isSetupComplete) {
         if (uiState.isSetupComplete) {
@@ -58,41 +86,99 @@ fun AuthScreen(
         }
     }
 
+    // PAT instructions dialog
+    if (showPatDialog) {
+        AlertDialog(
+            onDismissRequest = { showPatDialog = false },
+            title = { Text("Create a Personal Access Token") },
+            text = {
+                Text(
+                    "On the next page:\n\n" +
+                            "1. Give the token a name (e.g. \"GitJot\")\n" +
+                            "2. Under Repository access, select \"Only select repositories\" and pick your notes repo\n" +
+                            "3. Under Repository permissions, find Contents and select \"Read and write\"\n" +
+                            "4. Click Generate token and copy it"
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showPatDialog = false
+                    val intent = Intent(
+                        Intent.ACTION_VIEW,
+                        Uri.parse("https://github.com/settings/personal-access-tokens/new")
+                    )
+                    context.startActivity(intent)
+                }) {
+                    Text("Open GitHub")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPatDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Token help dialog
+    if (showTokenHelpDialog) {
+        AlertDialog(
+            onDismissRequest = { showTokenHelpDialog = false },
+            title = { Text("About Your Token") },
+            text = {
+                Text(
+                    "Your token is stored only on this device. It's sent directly to the GitHub API and nowhere else. You can revoke it anytime from GitHub Settings."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showTokenHelpDialog = false }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+
+    // Repo help dialog
+    if (showRepoHelpDialog) {
+        AlertDialog(
+            onDismissRequest = { showRepoHelpDialog = false },
+            title = { Text("About the Repository") },
+            text = {
+                Text(
+                    "This is the GitHub repository where your notes are stored as markdown files. You can name it anything. Enter as owner/repo or paste the full GitHub URL."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showRepoHelpDialog = false }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+
     Surface(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(rememberScrollState())
                 .padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Spacer(modifier = Modifier.height(24.dp))
+
             Text(
-                text = "Note Taker",
+                text = "GitJot Setup",
                 style = MaterialTheme.typography.headlineLarge
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "Your voice notes are saved as markdown files in a GitHub repository you own. Just talk — your words go straight to your repo.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "To connect, you'll need a repository for your notes and a personal access token.",
+                text = "Your voice notes are saved as markdown files in a GitHub repository you own.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "1. Create a blank GitHub repository for your notes (any name works)\n2. Create a fine-grained personal access token scoped to that repo\n3. Under Repository permissions, find Contents and select \"Read and write\"\n4. Paste the token below",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Start,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(16.dp))
+
+            Spacer(modifier = Modifier.height(32.dp))
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -101,25 +187,82 @@ fun AuthScreen(
                 )
             ) {
                 Column(
-                    modifier = Modifier.padding(20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    modifier = Modifier.padding(20.dp)
                 ) {
-                    OutlinedButton(onClick = {
-                        val intent = Intent(
-                            Intent.ACTION_VIEW,
-                            Uri.parse("https://github.com/settings/personal-access-tokens/new")
-                        )
-                        context.startActivity(intent)
-                    }) {
-                        Text("Create Token on GitHub")
+                    // Step 1: Fork the repo
+                    StepHeader(1, "Fork the Notes Repo")
+                    OutlinedButton(
+                        onClick = {
+                            val intent = Intent(
+                                Intent.ACTION_VIEW,
+                                Uri.parse("https://github.com/CarsonDavis/gitjot-notes/fork")
+                            )
+                            context.startActivity(intent)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Fork on GitHub")
                     }
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
 
+                    // Step 2: Repo field
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        StepHeader(2, "Enter Your Repository")
+                        Spacer(modifier = Modifier.weight(1f))
+                        IconButton(
+                            onClick = { showRepoHelpDialog = true },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.HelpOutline,
+                                contentDescription = "Repository help",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                    OutlinedTextField(
+                        value = uiState.repo,
+                        onValueChange = { viewModel.updateRepo(it) },
+                        placeholder = { Text("owner/repo or GitHub URL") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Step 3: Generate PAT
+                    StepHeader(3, "Generate a Personal Access Token")
+                    OutlinedButton(
+                        onClick = { showPatDialog = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Generate Token on GitHub")
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Step 4: Token field
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        StepHeader(4, "Paste Your Token")
+                        Spacer(modifier = Modifier.weight(1f))
+                        IconButton(
+                            onClick = { showTokenHelpDialog = true },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.HelpOutline,
+                                contentDescription = "Token help",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
                     OutlinedTextField(
                         value = uiState.token,
                         onValueChange = { viewModel.updateToken(it) },
-                        label = { Text("Personal Access Token") },
+                        placeholder = { Text("ghp_...") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         visualTransformation = if (tokenVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -134,22 +277,13 @@ fun AuthScreen(
                         }
                     )
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
 
-                    OutlinedTextField(
-                        value = uiState.repo,
-                        onValueChange = { viewModel.updateRepo(it) },
-                        label = { Text("Repository") },
-                        placeholder = { Text("owner/repo") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
+                    // Continue button
                     Button(
                         onClick = { viewModel.submit() },
-                        enabled = !uiState.isValidating && uiState.token.isNotBlank() && uiState.repo.isNotBlank()
+                        enabled = !uiState.isValidating && uiState.token.isNotBlank() && uiState.repo.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         if (uiState.isValidating) {
                             CircularProgressIndicator(
@@ -172,6 +306,8 @@ fun AuthScreen(
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }

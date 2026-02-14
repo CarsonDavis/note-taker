@@ -440,3 +440,20 @@ Also refactored build config to read signing/version properties from `local.prop
 - `./gradlew bundleRelease` → BUILD SUCCESSFUL
 - `extractReleaseNativeDebugMetadata` task ran successfully, confirming symbols are being extracted
 
+## M28b: Auth Screen Redesign + UX Improvements (2026-02-13)
+
+**What was built:**
+Complete auth screen redesign with 4-step guided flow, two-step validation with distinct error messages, URL parsing for the repo field, digital assistant onboarding dialog, and growing text field on the note input screen.
+
+**Changes:**
+1. **`GitHubApi.kt`** — Added `getRepository()` endpoint (`GET repos/{owner}/{repo}`) and `GitHubRepository` data class (`id`, `fullName`) for validating repo access separately from token.
+2. **`AuthViewModel.kt`** — Added `parseRepo()` function that handles `owner/repo`, `https://github.com/owner/repo`, and `github.com/owner/repo` (strips trailing `/` and `.git`). Rewrote `submit()` with two-step validation: `getUser()` catches 401 → "Personal access token is invalid"; `getRepository()` catches 404 → "Repository not found — check the name and token permissions"; other errors → "Network error: {message}".
+3. **`AuthScreen.kt`** — Complete rewrite as 4-step guided flow in a scrollable column: (1) Fork the Notes Repo button → opens GitHub fork page, (2) Repo field with `(?)` help icon → accepts owner/repo or full GitHub URL, (3) Generate PAT button → shows AlertDialog with step-by-step instructions then opens GitHub PAT page, (4) Token field with `(?)` help icon and visibility toggle. Added `StepHeader` composable (teal step number + title). Three AlertDialogs for PAT instructions, token security info, and repo format help.
+4. **`AuthManager.kt`** — Added `ONBOARDING_SHOWN` boolean preference key, `onboardingShown` flow, and `markOnboardingShown()` suspend function. Sign-out clears all preferences (including onboarding) so dialog reappears after re-auth.
+5. **`NoteViewModel.kt`** — Injected `AuthManager`, added `showOnboarding` StateFlow that checks the flag on init, and `dismissOnboarding()` that sets false + persists.
+6. **`NoteInputScreen.kt`** — Added onboarding AlertDialog ("Instant Note Capture") with "Set Up" → opens voice input settings and "Maybe Later" → dismisses. Replaced fixed 200dp text field with `weight(1f)` growing field that fills available space. Layout: 16dp top margin → growing text field → 16dp gap → submit button → history.
+
+**How verified:**
+- `./gradlew assembleDebug` → BUILD SUCCESSFUL (no errors, no warnings from our code)
+- Installed on device via ADB
+

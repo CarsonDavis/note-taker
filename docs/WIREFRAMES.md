@@ -140,44 +140,51 @@ Shows a warning and a button that opens the system's default assistant picker.
 
 ## 3. First Run / PAT Setup
 
-On first run (or when not authenticated), the app shows the PAT setup screen:
+On first run (or when not authenticated), the app shows a 4-step guided setup screen in a scrollable column:
 
 ```
 ┌──────────────────────────────┐
 │                              │
-│        Note Taker            │
+│        GitJot Setup          │
+│  Your voice notes are saved  │
+│  as markdown files in a      │
+│  GitHub repository you own.  │
 │                              │
-│  To get started, create a    │
-│  fine-grained Personal       │
-│  Access Token on GitHub:     │
-│                              │
-│  1. Create a token scoped    │
-│     to your notes repo       │
-│  2. Grant Contents read &    │
-│     write permission         │
-│  3. Paste the token below    │
-│                              │
-│  [ Create Token on GitHub ]  │
-│                              │
-│  ┌────────────────────────┐  │
-│  │ Personal Access Token 👁│  │
-│  └────────────────────────┘  │
-│  ┌────────────────────────┐  │
-│  │ owner/repo             │  │
-│  └────────────────────────┘  │
-│                              │
-│       [ Continue ]           │
-│                              │
+│ ┌──────────────────────────┐ │
+│ │ 1  Fork the Notes Repo   │ │
+│ │ [ Fork on GitHub       ] │ │
+│ │                          │ │
+│ │ 2  Enter Your Repo   (?) │ │
+│ │ ┌────────────────────┐   │ │
+│ │ │ owner/repo or URL  │   │ │
+│ │ └────────────────────┘   │ │
+│ │                          │ │
+│ │ 3  Generate a PAT        │ │
+│ │ [ Generate Token     ]   │ │
+│ │                          │ │
+│ │ 4  Paste Your Token  (?) │ │
+│ │ ┌────────────────────┐   │ │
+│ │ │ ghp_...          👁│   │ │
+│ │ └────────────────────┘   │ │
+│ │                          │ │
+│ │     [ Continue ]         │ │
+│ └──────────────────────────┘ │
 └──────────────────────────────┘
 ```
 
-"Create Token on GitHub" opens the GitHub fine-grained PAT creation page. Token field is password-masked with a visibility toggle. "Continue" validates the token via `GET /user` and navigates to note input.
+- Steps 1-4 are numbered with teal step numbers
+- Step 1: "Fork on GitHub" opens the template repo fork page
+- Step 2: Repo field accepts `owner/repo` or full GitHub URL; `(?)` icon shows help dialog
+- Step 3: "Generate Token on GitHub" first shows an AlertDialog with PAT creation instructions, then opens the GitHub PAT page
+- Step 4: Token field is password-masked with visibility toggle; `(?)` icon explains token storage security
+- "Continue" validates token via `GET /user` (401 → "Personal access token is invalid"), then validates repo via `GET /repos/{owner}/{repo}` (404 → "Repository not found"), then navigates to note input
+- Column is scrollable for small screens
 
 ---
 
 ## Design Decisions
 
-- **Text field**: fixed height, scrolls internally when content overflows
+- **Text field**: grows to fill available vertical space (via `weight(1f)`), scrolls internally when content overflows
 - **Submit button**: smaller centered button, easy to press one-handed
 - **Recent history**: collapsed by default
 - **Long topic names**: wrap to second line

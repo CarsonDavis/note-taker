@@ -75,10 +75,13 @@ Accessible from the top bar of the note input screen.
 
 ### FR5: Authentication & Configuration ✅
 - Authenticate via **fine-grained Personal Access Token (PAT)**:
-  1. On first run, app shows a setup screen with instructions
-  2. User creates a fine-grained PAT on github.com scoped to their notes repo with Contents read/write
-  3. User pastes the token and enters `owner/repo` in the app
-  4. App validates the token via `GET /user`, stores token + repo via Preferences DataStore
+  1. On first run, app shows a 4-step guided setup screen
+  2. Step 1: Fork the template notes repo on GitHub
+  3. Step 2: Enter repository as `owner/repo` or paste full GitHub URL (auto-parsed)
+  4. Step 3: Generate a PAT with step-by-step instructions dialog
+  5. Step 4: Paste the token (password-masked with visibility toggle)
+  6. App validates token via `GET /user` (401 → "token is invalid"), then validates repo via `GET /repos/{owner}/{repo}` (404 → "repo not found"), stores both via Preferences DataStore
+- Help `(?)` icons explain token security (device-only storage) and repo format
 - No OAuth infrastructure needed — no client ID, no device flow, no polling
 - Token scoped to a single repository by GitHub's PAT UI
 - To change repo or rotate token: sign out in settings and re-enter

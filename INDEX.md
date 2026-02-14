@@ -9,6 +9,7 @@ Minimal Android app for capturing notes and pushing them to a GitHub repo via th
 - `gradle.properties` — Gradle JVM args and Android settings
 - `gradle/libs.versions.toml` — Version catalog (all dependency versions)
 - `.gitignore` — Git ignore rules
+- `CHANGELOG.md` — User-facing release notes by version
 - `IMPLEMENTATION_LOG.md` — Build log for each milestone
 - `HANDOFF.md` — Current state, blockers, and next steps for handoff
 
@@ -36,10 +37,10 @@ Minimal Android app for capturing notes and pushing them to a GitHub repo via th
 - `NoteRecognitionService.kt` — Stub RecognitionService (required by Android 16 for valid VoiceInteractionService)
 
 #### `data/api/`
-- `GitHubApi.kt` — Retrofit interface: user validation, contents API
+- `GitHubApi.kt` — Retrofit interface: user validation, repository validation, contents API
 
 #### `data/auth/`
-- `AuthManager.kt` — Token + repo storage via Preferences DataStore
+- `AuthManager.kt` — Token + repo + onboarding flag storage via Preferences DataStore
 
 #### `data/local/`
 - `AppDatabase.kt` — Room database definition (v2: submissions + pending_notes)
@@ -66,14 +67,14 @@ Minimal Android app for capturing notes and pushing them to a GitHub repo via th
 - `NavGraph.kt` — Compose Navigation with type-safe routes (Auth, Note, Settings, Browse)
 
 #### `ui/screens/`
-- `NoteInputScreen.kt` — Main note input (text field, submit with queued state, pending count, history)
-- `AuthScreen.kt` — PAT setup screen: token + repo input, validation
+- `NoteInputScreen.kt` — Main note input (growing text field, submit with queued state, pending count, history, onboarding dialog)
+- `AuthScreen.kt` — PAT setup screen: 4-step guided flow with help dialogs, URL parsing, scrollable
 - `SettingsScreen.kt` — Sign out, read-only repo display, digital assistant role detection, delete all data
 - `BrowseScreen.kt` — Read-only repo browser: directory listing, file viewer with markdown rendering
 
 #### `ui/viewmodels/`
-- `NoteViewModel.kt` — Note input state, queue-first submit, pending count, topic fetch
-- `AuthViewModel.kt` — PAT validation + setup flow
+- `NoteViewModel.kt` — Note input state, queue-first submit, pending count, topic fetch, onboarding
+- `AuthViewModel.kt` — PAT validation + setup flow with URL parsing and two-step validation
 - `SettingsViewModel.kt` — Settings state, sign out, role check, delete all data
 - `BrowseViewModel.kt` — Browse state: directory navigation, file viewing
 
@@ -124,4 +125,4 @@ Minimal Android app for capturing notes and pushing them to a GitHub repo via th
 
 ## Status
 
-M1-M28 complete. V1 features (M1-M11) verified on device. V2 adds offline note queuing with WorkManager retry (M12-M14) and a read-only repo browser with markdown rendering (M15-M16). M17 adds voice-first note input with auto-start speech recognition, continuous listening, and mode switching. M18 adds Play Store publishing docs, release signing config, and GitHub Actions CI/CD. M19 validates Play Store docs against codebase — corrects speech recognition "on-device" claims and adds keystore patterns to .gitignore. M20 is a pre-publication security audit: disables HTTP body logging in release, disables ADB backup, enables R8 minification with ProGuard rules. M21 fixes audiobook blip during speech recognizer restart by holding app-level audio focus for the entire voice session. M22 adds informative context to the auth screen and settings screen, and rewrites the Play Store listing to lead with the capture philosophy. M23 adds a code-sourced data collection reference and audits the privacy policy against the codebase. M24 adds "Delete All Data" to the settings screen — wipes Room DB, DataStore, and WorkManager jobs with a confirmation dialog. M26 updates the app theme from default purple to a teal/blue/green palette matching the app icon. M27 adds purple-tinted dark surfaces, card-wrapped settings/auth sections, pill submit button, and surface-backed headers. All compiling.
+M1-M28 complete. V1 features (M1-M11) verified on device. V2 adds offline note queuing with WorkManager retry (M12-M14) and a read-only repo browser with markdown rendering (M15-M16). M17 adds voice-first note input with auto-start speech recognition, continuous listening, and mode switching. M18 adds Play Store publishing docs, release signing config, and GitHub Actions CI/CD. M19 validates Play Store docs against codebase — corrects speech recognition "on-device" claims and adds keystore patterns to .gitignore. M20 is a pre-publication security audit: disables HTTP body logging in release, disables ADB backup, enables R8 minification with ProGuard rules. M21 fixes audiobook blip during speech recognizer restart by holding app-level audio focus for the entire voice session. M22 adds informative context to the auth screen and settings screen, and rewrites the Play Store listing to lead with the capture philosophy. M23 adds a code-sourced data collection reference and audits the privacy policy against the codebase. M24 adds "Delete All Data" to the settings screen — wipes Room DB, DataStore, and WorkManager jobs with a confirmation dialog. M26 updates the app theme from default purple to a teal/blue/green palette matching the app icon. M27 adds purple-tinted dark surfaces, card-wrapped settings/auth sections, pill submit button, and surface-backed headers. M28b redesigns the auth screen as a 4-step guided flow with URL parsing, two-step validation (distinct errors for bad token vs bad repo), help dialogs, digital assistant onboarding, and a growing text field. All compiling.
