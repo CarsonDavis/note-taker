@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
@@ -34,6 +35,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -128,6 +130,14 @@ fun NoteInputScreen(
     }
 
     Scaffold(
+        topBar = {
+            TopicBar(
+                topic = uiState.topic,
+                isLoading = uiState.isTopicLoading,
+                onSettingsClick = onSettingsClick,
+                onBrowseClick = onBrowseClick
+            )
+        },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         modifier = Modifier.imePadding()
     ) { innerPadding ->
@@ -136,46 +146,14 @@ fun NoteInputScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            TopicBar(
-                topic = uiState.topic,
-                isLoading = uiState.isTopicLoading,
-                onSettingsClick = onSettingsClick,
-                onBrowseClick = onBrowseClick
-            )
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Text field area
             Column(
                 modifier = Modifier.padding(horizontal = 16.dp)
             ) {
-                // Listening indicator
-                if (uiState.inputMode == InputMode.VOICE) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (uiState.listeningState == ListeningState.LISTENING)
-                                Icons.Default.Mic else Icons.Default.MicOff,
-                            contentDescription = null,
-                            tint = if (uiState.listeningState == ListeningState.LISTENING)
-                                MaterialTheme.colorScheme.error
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = when (uiState.listeningState) {
-                                ListeningState.LISTENING -> "Listening..."
-                                ListeningState.RESTARTING -> "Listening..."
-                                ListeningState.IDLE -> "Mic idle"
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (uiState.listeningState == ListeningState.LISTENING)
-                                MaterialTheme.colorScheme.error
-                            else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+                val isListening = uiState.inputMode == InputMode.VOICE
+                        && uiState.listeningState == ListeningState.LISTENING
 
                 OutlinedTextField(
                     value = uiState.noteText,
@@ -197,8 +175,42 @@ fun NoteInputScreen(
                     keyboardOptions = KeyboardOptions(
                         capitalization = KeyboardCapitalization.Sentences
                     ),
-                    readOnly = uiState.inputMode == InputMode.VOICE
+                    readOnly = uiState.inputMode == InputMode.VOICE,
+                    colors = if (isListening) OutlinedTextFieldDefaults.colors(
+                        unfocusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.primary
+                    ) else OutlinedTextFieldDefaults.colors()
                 )
+
+                // Listening indicator
+                if (uiState.inputMode == InputMode.VOICE) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(top = 8.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (uiState.listeningState == ListeningState.LISTENING)
+                                Icons.Default.Mic else Icons.Default.MicOff,
+                            contentDescription = null,
+                            tint = if (uiState.listeningState == ListeningState.LISTENING)
+                                MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = when (uiState.listeningState) {
+                                ListeningState.LISTENING -> "Listening..."
+                                ListeningState.RESTARTING -> "Listening..."
+                                ListeningState.IDLE -> "Mic idle"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (uiState.listeningState == ListeningState.LISTENING)
+                                MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.weight(1f))
@@ -219,6 +231,7 @@ fun NoteInputScreen(
                         modifier = Modifier
                             .weight(1f)
                             .height(72.dp),
+                        shape = RoundedCornerShape(36.dp),
                         colors = when {
                             uiState.submitSuccess -> ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.tertiary,

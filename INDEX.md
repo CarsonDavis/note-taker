@@ -78,8 +78,8 @@ Minimal Android app for capturing notes and pushing them to a GitHub repo via th
 - `BrowseViewModel.kt` — Browse state: directory navigation, file viewing
 
 #### `ui/theme/`
-- `Theme.kt` — Dark-only Material 3 theme
-- `Color.kt` — Color definitions
+- `Theme.kt` — Dark-only Material 3 theme (teal/blue/green accents, purple-tinted dark surfaces)
+- `Color.kt` — Teal/blue/green accent colors + dark purple surface palette matching app icon
 - `Type.kt` — Typography
 
 ## Docs
@@ -124,4 +124,4 @@ Minimal Android app for capturing notes and pushing them to a GitHub repo via th
 
 ## Status
 
-M1-M25 complete. V1 features (M1-M11) verified on device. V2 adds offline note queuing with WorkManager retry (M12-M14) and a read-only repo browser with markdown rendering (M15-M16). M17 adds voice-first note input with auto-start speech recognition, continuous listening, and mode switching. M18 adds Play Store publishing docs, release signing config, and GitHub Actions CI/CD. M19 validates Play Store docs against codebase — corrects speech recognition "on-device" claims and adds keystore patterns to .gitignore. M20 is a pre-publication security audit: disables HTTP body logging in release, disables ADB backup, enables R8 minification with ProGuard rules. M21 fixes audiobook blip during speech recognizer restart by holding app-level audio focus for the entire voice session. M22 adds informative context to the auth screen and settings screen, and rewrites the Play Store listing to lead with the capture philosophy. M23 adds a code-sourced data collection reference and audits the privacy policy against the codebase. M24 adds "Delete All Data" to the settings screen — wipes Room DB, DataStore, and WorkManager jobs with a confirmation dialog. All compiling.
+M1-M27 complete. V1 features (M1-M11) verified on device. V2 adds offline note queuing with WorkManager retry (M12-M14) and a read-only repo browser with markdown rendering (M15-M16). M17 adds voice-first note input with auto-start speech recognition, continuous listening, and mode switching. M18 adds Play Store publishing docs, release signing config, and GitHub Actions CI/CD. M19 validates Play Store docs against codebase — corrects speech recognition "on-device" claims and adds keystore patterns to .gitignore. M20 is a pre-publication security audit: disables HTTP body logging in release, disables ADB backup, enables R8 minification with ProGuard rules. M21 fixes audiobook blip during speech recognizer restart by holding app-level audio focus for the entire voice session. M22 adds informative context to the auth screen and settings screen, and rewrites the Play Store listing to lead with the capture philosophy. M23 adds a code-sourced data collection reference and audits the privacy policy against the codebase. M24 adds "Delete All Data" to the settings screen — wipes Room DB, DataStore, and WorkManager jobs with a confirmation dialog. M26 updates the app theme from default purple to a teal/blue/green palette matching the app icon. M27 adds purple-tinted dark surfaces, card-wrapped settings/auth sections, pill submit button, and surface-backed headers. All compiling.

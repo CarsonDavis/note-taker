@@ -376,3 +376,52 @@ All claims in `privacy-policy.md` and `data-safety-declaration.md` verified accu
 **How verified:**
 - All 7 screenshots visually confirmed at 1440x3120 resolution
 - Play Store minimum is 1080x1920; native resolution exceeds requirement
+
+## M26: Update App Theme to Match Icon Colors (2026-02-13)
+
+**What was built:**
+Replaced the default Material 3 purple/pink theme with a teal/blue/green palette derived from the app icon's gradient. All UI elements using `MaterialTheme.colorScheme` automatically pick up the new colors — no screen files needed changes.
+
+**Changes:**
+1. **`Color.kt`** — Replaced 6 purple/pink color values with 6 new ones: `Teal80`/`Teal40` (primary), `Blue80`/`Blue40` (secondary), `Green80`/`Green40` (tertiary)
+2. **`Theme.kt`** — Updated `DarkColorScheme` to use `Teal80`, `Blue80`, `Green80`
+
+**Effect:**
+- Primary accents (mic button, folder icons, check marks, active icons) → teal (#4FD8B4)
+- Secondary (queued submission button) → blue (#6EC6FF)
+- Tertiary (success submission button) → mint green (#5EEAA0)
+- Error states → unchanged (Material default red)
+- All derived colors (containers, surfaces, onPrimary, etc.) auto-derived by Material 3
+
+**How verified:**
+- `./gradlew assembleDebug` → BUILD SUCCESSFUL
+- Grep confirms zero references to old Purple/Pink color names
+- Visual check on device needed to confirm colors look good
+
+## M27: Modern UI Polish — Surface Colors + Component Upgrades (2026-02-13)
+
+**What was built:**
+Deep visual polish pass: replaced flat gray Material default surfaces with purple-tinted dark surfaces matching the app icon background, and upgraded key components with modern Material 3 containers.
+
+**Changes:**
+1. **`Color.kt`** — Added 5 dark surface colors with cool purple undertone: `DarkPurple10` (scaffold bg), `DarkPurple15` (surface), `DarkPurple20` (surfaceContainer), `DarkPurple25` (surfaceContainerHigh), `DarkPurple30` (surfaceVariant)
+2. **`Theme.kt`** — Full dark color scheme mapping: background, surface, surfaceVariant, surfaceDim, surfaceContainer, surfaceContainerLow/High/Highest all set to the purple-tinted palette. All M3 components auto-pick up the new surface colors.
+3. **`NoteInputScreen.kt`** — Pill-shaped submit button via `RoundedCornerShape(36.dp)` (half of 72dp height)
+4. **`TopicBar.kt`** — Wrapped Row in `Surface(color = surfaceContainer)` so it reads as a proper header bar
+5. **`SettingsScreen.kt`** — Replaced 3x `HorizontalDivider` separators with 4 `Card` containers (surfaceContainer bg), each wrapping a section (GitHub Account, Repository, Digital Assistant, Delete All Data)
+6. **`AuthScreen.kt`** — Wrapped form area (token field, repo field, buttons) in a `Card` container; intro text stays above
+7. **`SubmissionHistory.kt`** — Replaced `HorizontalDivider` + bare Row header with `Surface(color = surfaceContainer)` wrapper
+
+**Effect:**
+- All screens now have purple-tinted dark surfaces instead of flat gray
+- TopAppBar, Scaffold background, dialogs, text field outlines all carry the icon's purple undertone
+- Settings sections visually grouped in cards instead of separated by thin lines
+- Auth form has clear visual boundary
+- Submit button is pill-shaped (modern look)
+- Teal/blue/green accents unchanged
+- Error states still default red
+
+**How verified:**
+- `./gradlew assembleDebug` → BUILD SUCCESSFUL
+- Installed on device via ADB
+
