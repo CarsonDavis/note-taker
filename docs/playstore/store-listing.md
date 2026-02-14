@@ -15,7 +15,6 @@ Capture thoughts instantly — voice notes pushed straight to your GitHub repo.
 
 ## Full Description
 
-```
 GitJot is built on a simple idea: when a thought hits you, you should be able to capture it in seconds — no navigating, no typing. Press a button, speak, done.
 
 How it works
@@ -47,7 +46,6 @@ Getting started
 Create a blank GitHub repository for your notes (any name works), then create a fine-grained personal access token with Contents read/write permission scoped to that repo. The app walks you through the rest.
 
 GitJot is open source: https://github.com/CarsonDavis/note-taker
-``` 
 
 ## Keywords
 
