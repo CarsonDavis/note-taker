@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.hilt)
@@ -5,6 +7,12 @@ plugins {
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.ksp)
 }
+
+val localProps = Properties()
+val localFile = rootProject.file("local.properties")
+if (localFile.exists()) { localFile.inputStream().use(localProps::load) }
+
+fun prop(key: String): String? = System.getenv(key) ?: localProps.getProperty(key)
 
 android {
     namespace = "com.carsondavis.notetaker"
@@ -14,18 +22,20 @@ android {
         applicationId = "com.carsondavis.notetaker"
         minSdk = 29
         targetSdk = 36
-        versionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: 1
-        versionName = System.getenv("VERSION_NAME") ?: "1.0"
+        versionCode = prop("VERSION_CODE")?.toIntOrNull()
+            ?: error("VERSION_CODE must be set in local.properties or environment")
+        versionName = prop("VERSION_NAME")
+            ?: error("VERSION_NAME must be set in local.properties or environment")
     }
 
     signingConfigs {
         create("release") {
-            val keystorePath = System.getenv("KEYSTORE_FILE")
+            val keystorePath = prop("KEYSTORE_FILE")
             if (keystorePath != null) {
                 storeFile = file(keystorePath)
-                storePassword = System.getenv("KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("KEY_ALIAS")
-                keyPassword = System.getenv("KEY_PASSWORD")
+                storePassword = prop("KEYSTORE_PASSWORD")
+                keyAlias = prop("KEY_ALIAS")
+                keyPassword = prop("KEY_PASSWORD")
             }
         }
     }
@@ -37,7 +47,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            val keystorePath = System.getenv("KEYSTORE_FILE")
+            val keystorePath = prop("KEYSTORE_FILE")
             if (keystorePath != null) {
                 signingConfig = signingConfigs.getByName("release")
             }

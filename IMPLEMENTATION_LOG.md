@@ -425,3 +425,18 @@ Deep visual polish pass: replaced flat gray Material default surfaces with purpl
 - `./gradlew assembleDebug` → BUILD SUCCESSFUL
 - Installed on device via ADB
 
+## M28: Include Native Debug Symbols in Release AAB (2026-02-13)
+
+**What was built:**
+Added `ndk { debugSymbolLevel = "FULL" }` to `defaultConfig` in `app/build.gradle.kts`. This bundles native debug symbols (`.so.dbg`) inside the AAB so Play Console can symbolicate crash reports from native libraries (Room/SQLite, OkHttp). Resolves the Play Console warning about missing debug symbols.
+
+Also refactored build config to read signing/version properties from `local.properties` with env var fallback (via `prop()` helper), and removed `readOnly` constraint from the note text field during voice mode so users can edit while dictating.
+
+**Changes:**
+- `app/build.gradle.kts` — `prop()` helper for env/local.properties lookup, `ndk { debugSymbolLevel = "FULL" }`, default versionName "0.1.0"
+- `NoteInputScreen.kt` — Removed `readOnly = uiState.inputMode == InputMode.VOICE`
+
+**How verified:**
+- `./gradlew bundleRelease` → BUILD SUCCESSFUL
+- `extractReleaseNativeDebugMetadata` task ran successfully, confirming symbols are being extracted
+

@@ -175,7 +175,6 @@ fun NoteInputScreen(
                     keyboardOptions = KeyboardOptions(
                         capitalization = KeyboardCapitalization.Sentences
                     ),
-                    readOnly = uiState.inputMode == InputMode.VOICE,
                     colors = if (isListening) OutlinedTextFieldDefaults.colors(
                         unfocusedBorderColor = MaterialTheme.colorScheme.primary,
                         unfocusedLabelColor = MaterialTheme.colorScheme.primary
