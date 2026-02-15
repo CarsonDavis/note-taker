@@ -457,3 +457,15 @@ Complete auth screen redesign with 4-step guided flow, two-step validation with 
 - `./gradlew assembleDebug` → BUILD SUCCESSFUL (no errors, no warnings from our code)
 - Installed on device via ADB
 
+## M29: Help Video + Side Button Settings (2026-02-14)
+
+**What was built:**
+Two UX additions: (1) "Need help?" link on the auth screen that opens a YouTube setup walkthrough video, and (2) reworked the Settings Digital Assistant card into a two-step guide — step 1 sets the app as the default digital assistant, step 2 opens Samsung's side button settings so users can rebind the side key from Bixby to "Digital assistant".
+
+**Changes:**
+1. **`AuthScreen.kt`** — Added `TextButton("Need help? Watch the setup walkthrough")` at the bottom of the scrollable column (after the card). On click opens `https://youtu.be/sNow-kcrxRo` via `Intent.ACTION_VIEW`.
+2. **`SettingsScreen.kt`** — Reworked "Digital Assistant" card into two numbered steps with a `HorizontalDivider` between them. Step 1: existing assistant status row + "Open Assistant Settings" button (same `ACTION_VOICE_INPUT_SETTINGS` intent). Step 2: description text + "Open Side Button Settings" button that launches Samsung's `SideKeySettings` activity via `ComponentName`, with `try/catch` fallback to `ACTION_APPLICATION_DETAILS_SETTINGS`. Added imports for `ComponentName`, `HorizontalDivider`, and `Arrangement`.
+
+**How verified:**
+- `./gradlew assembleDebug` → BUILD SUCCESSFUL
+

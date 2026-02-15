@@ -41,7 +41,7 @@ Accessible from the top bar of the note input screen.
 
 - GitHub account — sign in / sign out
 - Repository — shown read-only (sign out to change)
-- Digital assistant setup — detect if app holds `ROLE_ASSISTANT`, guide user to system settings if not
+- Digital assistant setup — two-step guide: (1) set as default assistant with role detection, (2) set side button to use digital assistant (Samsung `SideKeySettings` intent with fallback)
 - Delete all data — wipe all local data (Room DB, DataStore, WorkManager jobs) with confirmation dialog
 
 ## Functional Requirements
@@ -82,6 +82,7 @@ Accessible from the top bar of the note input screen.
   5. Step 4: Paste the token (password-masked with visibility toggle)
   6. App validates token via `GET /user` (401 → "token is invalid"), then validates repo via `GET /repos/{owner}/{repo}` (404 → "repo not found"), stores both via Preferences DataStore
 - Help `(?)` icons explain token security (device-only storage) and repo format
+- "Need help?" link at bottom opens a YouTube setup walkthrough video
 - No OAuth infrastructure needed — no client ID, no device flow, no polling
 - Token scoped to a single repository by GitHub's PAT UI
 - To change repo or rotate token: sign out in settings and re-enter

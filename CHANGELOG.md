@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.3.0
+
+**What's New**
+- "Need help?" link on the setup screen opens a YouTube walkthrough video
+- Settings now walks you through both steps to enable the side button shortcut
+
+**Setup Help Video**
+- Added a "Need help? Watch the setup walkthrough" link at the bottom of the auth screen
+- Opens a YouTube video that walks through the full setup process
+
+**Side Button Setup Guide**
+- The Digital Assistant settings card now has two clearly numbered steps
+- Step 1: Set GitJot as your default digital assistant (existing)
+- Step 2: Change your side button's long-press from Bixby to Digital assistant (new)
+- "Open Side Button Settings" takes you directly to Samsung's side key settings
+- Graceful fallback on non-Samsung devices
+
 ## v0.2.0
 
 **What's New**

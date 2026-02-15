@@ -1,12 +1,16 @@
 package com.carsondavis.notetaker.ui.screens
 
+import android.content.ComponentName
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -96,6 +100,7 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)
         ) {
             Spacer(modifier = Modifier.height(8.dp))
@@ -182,17 +187,24 @@ fun SettingsScreen(
                         text = "Digital Assistant",
                         style = MaterialTheme.typography.titleMedium
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = if (uiState.isAssistantDefault) {
-                            "Long-press the side button opens Note Taker from any screen."
-                        } else {
-                            "Set Note Taker as your digital assistant to long-press the side button and instantly start recording. Replaces Google Assistant on the side button. \"Hey Google\" voice activation still works."
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Step 1
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "1",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "Set as digital assistant",
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (uiState.isAssistantDefault) {
                             Icon(
@@ -212,12 +224,77 @@ fun SettingsScreen(
                             Text("Not set as default")
                         }
                     }
-                    if (!uiState.isAssistantDefault) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Button(onClick = {
-                            context.startActivity(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS))
-                        }) {
-                            Text("Open System Settings")
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Step 2
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "2",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "Set side button to digital assistant",
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Change your side button's long-press action from Bixby to Digital assistant",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Buttons side by side
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                context.startActivity(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS))
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Assistant Settings")
+                        }
+                        Button(
+                            onClick = {
+                                try {
+                                    context.startActivity(
+                                        Intent().setComponent(
+                                            ComponentName(
+                                                "com.samsung.android.settings",
+                                                "com.samsung.android.settings.SideKeySettings"
+                                            )
+                                        )
+                                    )
+                                } catch (_: Exception) {
+                                    try {
+                                        context.startActivity(
+                                            Intent().setComponent(
+                                                ComponentName(
+                                                    "com.android.settings",
+                                                    "com.samsung.android.settings.SideKeySettings"
+                                                )
+                                            )
+                                        )
+                                    } catch (_: Exception) {
+                                        context.startActivity(
+                                            Intent(Settings.ACTION_SETTINGS)
+                                        )
+                                    }
+                                }
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Button Settings")
                         }
                     }
                 }

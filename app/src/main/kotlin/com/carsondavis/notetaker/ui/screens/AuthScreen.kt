@@ -308,6 +308,18 @@ fun AuthScreen(
             }
 
             Spacer(modifier = Modifier.height(32.dp))
+
+            TextButton(onClick = {
+                val intent = Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse("https://youtu.be/sNow-kcrxRo")
+                )
+                context.startActivity(intent)
+            }) {
+                Text("Need help? Watch the setup walkthrough")
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
