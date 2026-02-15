@@ -26,6 +26,9 @@ android {
             ?: error("VERSION_CODE must be set in local.properties or environment")
         versionName = prop("VERSION_NAME")
             ?: error("VERSION_NAME must be set in local.properties or environment")
+
+        buildConfigField("String", "GITHUB_CLIENT_ID", "\"${prop("GITHUB_CLIENT_ID") ?: ""}\"")
+        buildConfigField("String", "GITHUB_CLIENT_SECRET", "\"${prop("GITHUB_CLIENT_SECRET") ?: ""}\"")
     }
 
     signingConfigs {
@@ -58,6 +61,7 @@ android {
         compose = true
         buildConfig = true
     }
+
 }
 
 dependencies {
@@ -109,4 +113,7 @@ dependencies {
 
     // DataStore
     implementation(libs.datastore.preferences)
+
+    // Security (EncryptedSharedPreferences)
+    implementation(libs.security.crypto)
 }

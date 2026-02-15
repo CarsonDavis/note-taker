@@ -74,19 +74,27 @@ Accessible from the top bar of the note input screen.
 - Persists across app restarts
 
 ### FR5: Authentication & Configuration ✅
-- Authenticate via **fine-grained Personal Access Token (PAT)**:
-  1. On first run, app shows a 4-step guided setup screen
-  2. Step 1: Fork the template notes repo on GitHub
-  3. Step 2: Enter repository as `owner/repo` or paste full GitHub URL (auto-parsed)
-  4. Step 3: Generate a PAT with step-by-step instructions dialog
-  5. Step 4: Paste the token (password-masked with visibility toggle)
-  6. App validates token via `GET /user` (401 → "token is invalid"), then validates repo via `GET /repos/{owner}/{repo}` (404 → "repo not found"), stores both via Preferences DataStore
-- Help `(?)` icons explain token security (device-only storage) and repo format
+- **Primary: GitHub App OAuth** — "Sign in with GitHub" button launches the GitHub App installation flow:
+  1. Chrome Custom Tab opens to GitHub's App install page
+  2. User picks their GitHub account and selects a repository
+  3. GitHub redirects through a Pages bounce page (`madebycarson.com/gitjot-oauth/callback`) back to the app via `notetaker://` custom scheme
+  4. App exchanges the authorization code for an access token (PKCE-protected)
+  5. App discovers the installed repo via `/user/installations` API
+  6. Token stored in EncryptedSharedPreferences (Android Keystore-backed)
+  7. Non-expiring user tokens — no refresh logic needed
+- **Shared prerequisite** — Fork the template notes repo on GitHub (step 1, visible above both auth methods)
+- **Fallback: Fine-grained PAT** — collapsible 4-step guided flow (AnimatedVisibility):
+  1. Enter repository as `owner/repo` or paste full GitHub URL (auto-parsed)
+  3. Generate a PAT with step-by-step instructions dialog
+  4. Paste the token (password-masked with visibility toggle)
+  5. App validates token via `GET /user` (401 → "token is invalid"), then validates repo via `GET /repos/{owner}/{repo}` (404 → "repo not found")
+- Both auth types store tokens in EncryptedSharedPreferences, metadata in DataStore
+- Settings screen shows "Connected via GitHub" or "Connected via Personal Access Token"
+- "What am I agreeing to?" link on OAuth flow explains permissions in plain language (one-repo read/write only, revocable)
+- Help `(?)` icons explain token security and repo format
 - "Need help?" link at bottom opens a YouTube setup walkthrough video
-- No OAuth infrastructure needed — no client ID, no device flow, no polling
-- Token scoped to a single repository by GitHub's PAT UI
 - To change repo or rotate token: sign out in settings and re-enter
-- See `docs/adr/001-pat-over-oauth.md` for why PAT was chosen over OAuth
+- See `docs/github-app-oauth-implementation.md` for implementation plan
 
 ### FR6: Lock Screen Launch ✅
 - App registers as an Android digital assistant via `VoiceInteractionService`
@@ -134,7 +142,7 @@ Two-tier model (same pattern as the camera app):
 - **Theme**: Dark mode only
 - **Simplicity**: Minimal UI — this is a capture tool, not a note management app
 - **Speed**: App should open and be ready to type within 1-2 seconds
-- **Security**: HTTP logging disabled in release builds, ADB backup disabled, R8 minification enabled (M20 audit)
+- **Security**: HTTP logging disabled in release builds, ADB backup disabled, R8 minification enabled (M20 audit), tokens encrypted at rest via EncryptedSharedPreferences (M31)
 
 ## Out of Scope
 

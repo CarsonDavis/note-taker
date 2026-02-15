@@ -469,3 +469,102 @@ Two UX additions: (1) "Need help?" link on the auth screen that opens a YouTube 
 **How verified:**
 - `./gradlew assembleDebug` → BUILD SUCCESSFUL
 
+## M31: GitHub App OAuth Authentication (2026-02-14)
+
+**What was built:**
+Full GitHub App OAuth flow as the primary auth method, with the existing PAT flow as a collapsible fallback. Users tap "Sign in with GitHub" → Chrome Custom Tab opens GitHub App install page → user picks account and repo → GitHub redirects through a Pages bounce page → app receives the callback via `notetaker://` custom scheme → exchanges code for token → discovers installed repo → done.
+
+**Changes:**
+
+Phase 1 — Encrypted storage foundation:
+- `gradle/libs.versions.toml` — Added `security-crypto = "1.0.0"` version + library entry
+- `app/build.gradle.kts` — Added `implementation(libs.security.crypto)`, `buildConfigField` for `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` read from `local.properties` via `prop()`
+- `app/proguard-rules.pro` — Added Tink keep rules and `dontwarn` for `com.google.errorprone.annotations` and `javax.annotation`
+- `di/AppModule.kt` — Added `@Provides` for `EncryptedSharedPreferences` (using `MasterKeys.AES256_GCM_SPEC`) and `GitHubInstallationApi`
+- `data/auth/AuthManager.kt` — Rewritten to store access token in `EncryptedSharedPreferences` while keeping metadata (username, repo, auth type) in DataStore. Added `AUTH_TYPE` ("pat"/"oauth"), `INSTALLATION_ID`, `TOKEN_UPDATED_AT` keys. `accessToken` Flow reads from encrypted prefs. One-time migration from old plain DataStore token via `migrateTokenIfNeeded()`. New `saveOAuthTokens()` and `saveInstallationId()` methods. `signOut()` clears both encrypted prefs and DataStore
+- `NoteApp.kt` — Calls `authManager.migrateTokenIfNeeded()` in `onCreate` via app-scoped coroutine
+
+Phase 2 — OAuth plumbing:
+- **New** `data/auth/OAuthConfig.kt` — Constants (client ID/secret from BuildConfig, redirect URIs, GitHub URLs) and PKCE helpers (code verifier via 32 random bytes Base64URL, code challenge via SHA-256, state via 16 random hex bytes)
+- **New** `data/auth/OAuthTokenExchanger.kt` — `@Singleton` that POSTs to GitHub's token endpoint to exchange an authorization code for an access token using OkHttp
+- **New** `data/auth/OAuthCallbackHolder.kt` — `@Singleton` with `MutableStateFlow<OAuthCallbackData?>` to shuttle callback code/state from Activity to ViewModel
+- **New** `OAuthCallbackActivity.kt` — `@AndroidEntryPoint` Activity with `Theme.Translucent.NoTitleBar`. Extracts `code` and `state` from `notetaker://callback` intent data, passes to `OAuthCallbackHolder`, launches `MainActivity` with `CLEAR_TOP|SINGLE_TOP`, finishes immediately
+- **New** `data/api/GitHubInstallationApi.kt` — Retrofit interface for `GET /user/installations` and `GET /user/installations/{id}/repositories` with model classes
+- `AndroidManifest.xml` — Added `OAuthCallbackActivity` with intent filter for `notetaker://callback`
+
+Phase 4 — AuthViewModel OAuth flow:
+- `ui/viewmodels/AuthViewModel.kt` — Rewritten with OAuth as primary flow. `startOAuthFlow()` generates PKCE verifier/state, saves to `SavedStateHandle` (survives process death), returns URI for GitHub App install page. `init{}` observes `OAuthCallbackHolder` for incoming callbacks. `handleOAuthCallback()` validates saved state, exchanges code for token, calls `getUser()` for username, discovers installation and repo via `GitHubInstallationApi`, saves everything via `AuthManager`. PAT flow (`submit()`, `parseRepo()`) preserved unchanged. New `showPatFlow()`/`hidePatFlow()` toggles
+
+Phase 5 — AuthScreen UI redesign:
+- `ui/screens/AuthScreen.kt` — "Sign in with GitHub" filled Button as primary UI element. Below: one-tap setup bullet list. "Or use a Personal Access Token instead" TextButton toggles the existing 4-step PAT card via `AnimatedVisibility`. "Back to GitHub sign-in" TextButton at bottom of PAT card. Loading spinner on OAuth button while in progress. Error text shows below OAuth section
+
+Phase 6 — Settings polish:
+- `ui/viewmodels/SettingsViewModel.kt` — Added `authType` to `SettingsUiState`, observed from `AuthManager.authType`
+- `ui/screens/SettingsScreen.kt` — Shows "Connected via GitHub" or "Connected via Personal Access Token" label below username
+
+**Token strategy:**
+Non-expiring GitHub App user tokens — no refresh logic needed. PKCE protects the authorization code exchange. Client secret shipped in APK (standard for public clients, endorsed by GitHub).
+
+**Files unchanged:** `GitHubApi.kt`, `NoteRepository.kt`, `NoteUploadWorker.kt`, `NavGraph.kt` — callers still just call `authManager.accessToken.first()` with `Bearer` prefix. No changes needed.
+
+**How verified:**
+- `./gradlew assembleDebug` → BUILD SUCCESSFUL
+- `./gradlew assembleRelease` → BUILD SUCCESSFUL (R8 minification with Tink keep rules)
+- End-to-end OAuth flow needs on-device testing
+
+## M30: OAuth Redirect Repo Setup (2026-02-14)
+
+**What was built:**
+GitHub Pages redirect repo for the OAuth callback bounce page — prerequisite 2 from the [OAuth implementation plan](docs/github-app-oauth-implementation.md).
+
+**Changes:**
+1. **Created [`CarsonDavis/gitjot-oauth`](https://github.com/CarsonDavis/gitjot-oauth)** — Public repo with GitHub Pages enabled on `master` branch. Serves at `https://madebycarson.com/gitjot-oauth/` (custom domain).
+2. **`callback/index.html`** — Bounce page that redirects `?code=...&state=...` query params from GitHub's OAuth callback to the `notetaker://callback` custom URI scheme, handing control back to the Android app.
+3. **`_config.yml`** — `include: [".well-known"]` so GitHub Pages will serve `assetlinks.json` when Android App Links are added later.
+4. **Updated `docs/github-app-oauth-implementation.md`** — Marked prerequisite 2 as complete, updated all placeholder URLs to actual values (`madebycarson.com/gitjot-oauth/callback`), set app name to `gitjot`, resolved open question #2.
+
+**How verified:**
+- `curl -sL https://madebycarson.com/gitjot-oauth/callback/` → returns correct HTML with `notetaker://callback` redirect
+- GitHub Pages status: `built`
+
+## M32: OAuth Bug Fixes + Auth Screen Layout (2026-02-14)
+
+**What was built:**
+Three bugs discovered during first on-device OAuth test, all fixed:
+
+1. **Endless spinner fix** — `OAuthCallbackActivity` required both `code` AND `state` to be non-null, but GitHub's App install flow only sends `?code=X` (no `state`). Changed to `if (code != null)` and passes `state ?: ""`. The callback now reaches the ViewModel.
+
+2. **Back-press escape** — If user presses Back from the browser, `isOAuthInProgress` stayed `true` forever with no way to reset. Added `cancelOAuthFlow()` to `AuthViewModel` and `LifecycleEventEffect(ON_RESUME)` in `AuthScreen` that calls it. If a real callback arrived, the ViewModel already set `isValidating = true` before resume fires, so this doesn't interfere.
+
+3. **Auth screen layout** — Fork step was buried inside the PAT-only card. Pulled it out as step 1, visible above both auth methods. OAuth button is step 2 with updated description ("select the repo you just forked"). PAT flow remains collapsible fallback.
+
+4. **"What am I agreeing to?" dialog** — TextButton below the OAuth description opens an AlertDialog explaining in plain language: read/write files in one repo you choose, no access to other repos/profile/email, revocable anytime from GitHub Settings.
+
+**Changes:**
+- `OAuthCallbackActivity.kt` — `state` no longer required: `if (code != null)`, passes `state ?: ""`
+- `ui/viewmodels/AuthViewModel.kt` — Added `cancelOAuthFlow()` method
+- `ui/screens/AuthScreen.kt` — Fork step at top, `LifecycleEventEffect(ON_RESUME)` for spinner reset, updated OAuth description text, "What am I agreeing to?" help dialog
+
+**How verified:**
+- `./gradlew installDebug` → BUILD SUCCESSFUL, installed on device
+- On-device testing needed for OAuth flow, back-press, and PAT flow
+
+## M33: Auth Screen Redesign — Two-Card Layout (2026-02-14)
+
+**What was built:**
+Complete visual redesign of the auth setup screen. Replaced the scattered step-based layout with two clean, self-contained cards.
+
+1. **Two-card layout** — Card 1: "Create Your Notes Repo" (fork). Card 2: "Connect Your Repo" (OAuth sign-in, with PAT as inline toggle). Each card has a title, description, and action button.
+2. **Green step numbers** — "1." and "2." rendered in `primary` (teal) color, separated from the title text.
+3. **Right-justified help icons** — `?` icons pushed to far right of each card header via `Spacer(weight(1f))`.
+4. **Fork help dialog** — Explains the template repo structure, the Claude Code inbox processor agent (cleans speech-to-text, sorts into topics, maintains indexes), and that forking gives a private copy.
+5. **PAT inline toggle** — "Or connect with a Personal Access Token" replaces the OAuth content within card 2 (not a separate expanding section). "Back to GitHub sign-in" reverts.
+6. **Updated subtitle** — "Your voice notes, saved to Git, organized by AI."
+
+**Changes:**
+- `ui/screens/AuthScreen.kt` — Full rewrite: removed `StepHeader` composable and `AnimatedVisibility`, two `Card` layout, fork help dialog, green step numbers, right-justified `?` icons, new subtitle, PAT flow as card 2 content swap
+
+**How verified:**
+- `./gradlew assembleDebug` → BUILD SUCCESSFUL
+- Installed on device via `adb install`, visually verified both cards, help dialogs, PAT toggle
+

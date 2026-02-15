@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.4.0
+
+**What's New**
+- Sign in with GitHub (OAuth) — one tap to connect, no tokens to manage
+- Redesigned setup screen with a cleaner two-step card layout
+- Help icons explain the notes repo template and GitHub permissions
+
+**GitHub OAuth**
+- "Sign in with GitHub" as the primary auth method — installs the GitJot GitHub App on one repo you choose
+- PKCE-protected OAuth flow with EncryptedSharedPreferences token storage
+- Personal Access Token remains available as a manual fallback
+
+**Setup Screen Redesign**
+- Two clear cards: "1. Create Your Notes Repo" and "2. Connect Your Repo"
+- Each card has a description and a single action button
+- Help icon on card 1 explains the template repo and the Claude Code inbox processor agent
+- Help icon on card 2 explains exactly what permissions GitJot gets (read/write one repo, nothing else)
+- PAT flow toggles inline within the connect card instead of expanding a separate section
+- Updated tagline: "Your voice notes, saved to Git, organized by AI."
+
 ## v0.3.0
 
 **What's New**

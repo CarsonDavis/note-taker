@@ -47,26 +47,9 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.carsondavis.notetaker.ui.viewmodels.AuthViewModel
-
-@Composable
-private fun StepHeader(stepNumber: Int, title: String) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(bottom = 8.dp)
-    ) {
-        Text(
-            text = "$stepNumber",
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium
-        )
-    }
-}
 
 @Composable
 fun AuthScreen(
@@ -79,11 +62,38 @@ fun AuthScreen(
     var showPatDialog by remember { mutableStateOf(false) }
     var showTokenHelpDialog by remember { mutableStateOf(false) }
     var showRepoHelpDialog by remember { mutableStateOf(false) }
+    var showOAuthHelpDialog by remember { mutableStateOf(false) }
+    var showForkHelpDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.isSetupComplete) {
         if (uiState.isSetupComplete) {
             onAuthComplete()
         }
+    }
+
+    // Reset OAuth spinner when user returns from browser without completing flow
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        viewModel.cancelOAuthFlow()
+    }
+
+    // Fork help dialog
+    if (showForkHelpDialog) {
+        AlertDialog(
+            onDismissRequest = { showForkHelpDialog = false },
+            title = { Text("About the Notes Repo") },
+            text = {
+                Text(
+                    "The template repo comes with a pre-configured folder structure and a Claude Code agent that processes your raw voice notes.\n\n" +
+                            "The agent cleans up speech-to-text artifacts, sorts notes into topic folders (books, podcasts, personal, etc.), and maintains indexes \u2014 all as plain markdown in a repo you own.\n\n" +
+                            "Forking gives you your own private copy to start capturing into."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showForkHelpDialog = false }) {
+                    Text("OK")
+                }
+            }
+        )
     }
 
     // PAT instructions dialog
@@ -156,6 +166,27 @@ fun AuthScreen(
         )
     }
 
+    // OAuth permissions help dialog
+    if (showOAuthHelpDialog) {
+        AlertDialog(
+            onDismissRequest = { showOAuthHelpDialog = false },
+            title = { Text("What am I agreeing to?") },
+            text = {
+                Text(
+                    "You're installing the GitJot GitHub App on one repository you choose. This gives GitJot:\n\n" +
+                            "\u2022 Read and write files in that one repo (to save your notes)\n\n" +
+                            "That's it. GitJot cannot access your other repos, your profile, your email, or anything else.\n\n" +
+                            "You can revoke access anytime from GitHub Settings \u2192 Applications \u2192 Installed GitHub Apps."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showOAuthHelpDialog = false }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+
     Surface(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -172,7 +203,7 @@ fun AuthScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Your voice notes are saved as markdown files in a GitHub repository you own.",
+                text = "Your voice notes, saved to Git, organized by AI.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -180,18 +211,46 @@ fun AuthScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
+            // Card 1: Fork
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer
                 )
             ) {
-                Column(
-                    modifier = Modifier.padding(20.dp)
-                ) {
-                    // Step 1: Fork the repo
-                    StepHeader(1, "Fork the Notes Repo")
-                    OutlinedButton(
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "1.",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Create Your Notes Repo",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        IconButton(
+                            onClick = { showForkHelpDialog = true },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.HelpOutline,
+                                contentDescription = "About the notes repo",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Fork the template repo to your GitHub account. This is where your notes will be stored.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
                         onClick = {
                             val intent = Intent(
                                 Intent.ACTION_VIEW,
@@ -203,106 +262,215 @@ fun AuthScreen(
                     ) {
                         Text("Fork on GitHub")
                     }
+                }
+            }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-                    // Step 2: Repo field
+            // Card 2: Connect
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                )
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        StepHeader(2, "Enter Your Repository")
+                        Text(
+                            text = "2.",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Connect Your Repo",
+                            style = MaterialTheme.typography.titleMedium
+                        )
                         Spacer(modifier = Modifier.weight(1f))
                         IconButton(
-                            onClick = { showRepoHelpDialog = true },
+                            onClick = { showOAuthHelpDialog = true },
                             modifier = Modifier.size(24.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.HelpOutline,
-                                contentDescription = "Repository help",
+                                contentDescription = "What am I agreeing to?",
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
                     }
-                    OutlinedTextField(
-                        value = uiState.repo,
-                        onValueChange = { viewModel.updateRepo(it) },
-                        placeholder = { Text("owner/repo or GitHub URL") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // Step 3: Generate PAT
-                    StepHeader(3, "Generate a Personal Access Token")
-                    OutlinedButton(
-                        onClick = { showPatDialog = true },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Generate Token on GitHub")
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // Step 4: Token field
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        StepHeader(4, "Paste Your Token")
-                        Spacer(modifier = Modifier.weight(1f))
-                        IconButton(
-                            onClick = { showTokenHelpDialog = true },
-                            modifier = Modifier.size(24.dp)
+                    if (!uiState.showPatFlow) {
+                        // OAuth content
+                        Text(
+                            text = "Sign in and select the repo you just forked. GitJot only gets access to that one repo.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = {
+                                val uri = viewModel.startOAuthFlow()
+                                context.startActivity(Intent(Intent.ACTION_VIEW, uri))
+                            },
+                            enabled = !uiState.isValidating && !uiState.isOAuthInProgress,
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.HelpOutline,
-                                contentDescription = "Token help",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(20.dp)
+                            if (uiState.isOAuthInProgress || uiState.isValidating) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Signing in...")
+                            } else {
+                                Text("Sign in with GitHub")
+                            }
+                        }
+
+                        // Error display
+                        if (uiState.error != null) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = uiState.error!!,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall
                             )
                         }
-                    }
-                    OutlinedTextField(
-                        value = uiState.token,
-                        onValueChange = { viewModel.updateToken(it) },
-                        placeholder = { Text("ghp_...") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        visualTransformation = if (tokenVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        trailingIcon = {
-                            IconButton(onClick = { tokenVisible = !tokenVisible }) {
+
+                        Spacer(modifier = Modifier.height(12.dp))
+                        TextButton(
+                            onClick = { viewModel.showPatFlow() },
+                            modifier = Modifier.align(Alignment.Start)
+                        ) {
+                            Text(
+                                "Or connect with a Personal Access Token",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    } else {
+                        // PAT content (replaces OAuth)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "Repository",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Spacer(modifier = Modifier.weight(1f))
+                            IconButton(
+                                onClick = { showRepoHelpDialog = true },
+                                modifier = Modifier.size(24.dp)
+                            ) {
                                 Icon(
-                                    imageVector = if (tokenVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                    contentDescription = if (tokenVisible) "Hide token" else "Show token"
+                                    imageVector = Icons.AutoMirrored.Filled.HelpOutline,
+                                    contentDescription = "Repository help",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
                                 )
                             }
                         }
-                    )
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // Continue button
-                    Button(
-                        onClick = { viewModel.submit() },
-                        enabled = !uiState.isValidating && uiState.token.isNotBlank() && uiState.repo.isNotBlank(),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        if (uiState.isValidating) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onPrimary
-                            )
-                        } else {
-                            Text("Continue")
-                        }
-                    }
-
-                    if (uiState.error != null) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = uiState.error!!,
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall
+                        Spacer(modifier = Modifier.height(4.dp))
+                        OutlinedTextField(
+                            value = uiState.repo,
+                            onValueChange = { viewModel.updateRepo(it) },
+                            placeholder = { Text("owner/repo or GitHub URL") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
                         )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Text(
+                            text = "Personal Access Token",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        OutlinedButton(
+                            onClick = { showPatDialog = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Generate Token on GitHub")
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "Paste Token",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Spacer(modifier = Modifier.weight(1f))
+                            IconButton(
+                                onClick = { showTokenHelpDialog = true },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.HelpOutline,
+                                    contentDescription = "Token help",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        OutlinedTextField(
+                            value = uiState.token,
+                            onValueChange = { viewModel.updateToken(it) },
+                            placeholder = { Text("ghp_...") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            visualTransformation = if (tokenVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                            trailingIcon = {
+                                IconButton(onClick = { tokenVisible = !tokenVisible }) {
+                                    Icon(
+                                        imageVector = if (tokenVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                        contentDescription = if (tokenVisible) "Hide token" else "Show token"
+                                    )
+                                }
+                            }
+                        )
+
+                        // Error display
+                        if (uiState.error != null) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = uiState.error!!,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Button(
+                            onClick = { viewModel.submit() },
+                            enabled = !uiState.isValidating && uiState.token.isNotBlank() && uiState.repo.isNotBlank(),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            if (uiState.isValidating) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary
+                                )
+                            } else {
+                                Text("Continue")
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        TextButton(
+                            onClick = { viewModel.hidePatFlow() },
+                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                        ) {
+                            Text(
+                                "Back to GitHub sign-in",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
                     }
                 }
             }

@@ -52,11 +52,11 @@ Go to https://github.com/settings/apps/new and configure:
 
 | Setting | Value |
 |---------|-------|
-| App name | `note-taker` (must be globally unique on GitHub) |
+| App name | `GitJot-OAuth` (globally unique on GitHub) |
 | Homepage URL | App repo or landing page |
-| Callback URL | `https://<username>.github.io/note-taker-oauth/callback` |
+| Callback URL | `https://madebycarson.com/gitjot-oauth/callback` |
 | Request user authorization during installation | **Enabled** |
-| Expire user authorization tokens | **Enabled** |
+| Expire user authorization tokens | **Disabled** (non-expiring tokens, simpler — no refresh logic needed) |
 | Enable Device Flow | **Enabled** (fallback) |
 | Webhooks | **Disabled** |
 | Repository permissions → Contents | **Read & Write** |
@@ -65,10 +65,11 @@ Go to https://github.com/settings/apps/new and configure:
 This produces a **Client ID** (public) and **Client Secret** (ships in APK,
 protected by PKCE).
 
-### 2. Set Up GitHub Pages Redirect
+### 2. Set Up GitHub Pages Redirect ✅
 
-Create a repo (e.g., `note-taker-oauth`) with GitHub Pages enabled. It needs
-one file:
+Created [`CarsonDavis/gitjot-oauth`](https://github.com/CarsonDavis/gitjot-oauth)
+with GitHub Pages enabled on the `master` branch. Live at
+`https://madebycarson.com/gitjot-oauth/` (custom domain).
 
 **`callback/index.html`**
 ```html
@@ -76,7 +77,7 @@ one file:
 <html>
 <head><title>Redirecting...</title></head>
 <body>
-  <p>Redirecting to Note Taker...</p>
+  <p>Redirecting to GitJot...</p>
   <script>
     window.location.href = "notetaker://callback" + window.location.search;
   </script>
@@ -87,6 +88,9 @@ one file:
 
 GitHub redirects to this HTTPS page after authorization. The page bounces the
 `code` and `state` params to the app via the `notetaker://` custom scheme.
+
+**`_config.yml`** — `include: [".well-known"]` so GitHub Pages serves dotfiles
+(for future Android App Links).
 
 **Optional enhancement — Android App Links:**
 
@@ -103,9 +107,6 @@ Add `/.well-known/assetlinks.json` to skip the bounce page entirely:
 }]
 ```
 
-And add `_config.yml` with `include: [".well-known"]` so GitHub Pages serves
-the dotfile.
-
 ---
 
 ## Implementation Steps
@@ -117,8 +118,8 @@ the dotfile.
 Add to the app (e.g., `BuildConfig` fields or a constants object):
 - `GITHUB_CLIENT_ID`
 - `GITHUB_CLIENT_SECRET`
-- `GITHUB_CALLBACK_URL` (`https://<username>.github.io/note-taker-oauth/callback`)
-- `GITHUB_APP_INSTALL_URL` (`https://github.com/apps/<app-name>/installations/select_target`)
+- `GITHUB_CALLBACK_URL` (`https://madebycarson.com/gitjot-oauth/callback`)
+- `GITHUB_APP_INSTALL_URL` (`https://github.com/apps/gitjot-oauth/installations/select_target`)
 
 #### 1.2 PKCE utility
 
@@ -143,7 +144,7 @@ Open a Custom Tab to the GitHub App installation URL. For the combined
 install+authorize flow, the URL is:
 
 ```
-https://github.com/apps/<app-name>/installations/select_target
+https://github.com/apps/gitjot-oauth/installations/select_target
 ```
 
 GitHub handles chaining from installation → OAuth authorization automatically
@@ -341,12 +342,9 @@ in the research report.
 
 ## Open Questions
 
-1. **GitHub App name**: Must be globally unique. Need to check availability.
-2. **GitHub Pages repo**: Use existing repo or create a dedicated one for the
-   callback page?
+1. ~~**GitHub App name**~~: ✅ Registered as `GitJot-OAuth` (`gitjot` was taken). Slug: `gitjot-oauth`.
+2. ~~**GitHub Pages repo**~~: ✅ Created `CarsonDavis/gitjot-oauth`, live at `https://madebycarson.com/gitjot-oauth/callback`.
 3. **Device Flow fallback**: Worth implementing as a backup, or keep PAT as
    the only fallback?
-4. **Token expiration setting**: 8-hour tokens with refresh is more secure but
-   adds complexity. Non-expiring tokens are simpler but riskier. Research report
-   recommends expiring tokens.
+4. ~~**Token expiration setting**~~: ✅ Disabled expiring tokens. Non-expiring tokens keep implementation simple (no refresh logic). Can enable later if needed — existing tokens continue to work.
 5. **Do we retire PAT support eventually?** Or keep both paths permanently?

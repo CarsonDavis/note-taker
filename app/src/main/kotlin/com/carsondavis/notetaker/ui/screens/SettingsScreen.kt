@@ -128,6 +128,16 @@ fun SettingsScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Signed in as ${uiState.username}")
                         }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = when (uiState.authType) {
+                                "oauth" -> "Connected via GitHub"
+                                "pat" -> "Connected via Personal Access Token"
+                                else -> ""
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(
                             onClick = {

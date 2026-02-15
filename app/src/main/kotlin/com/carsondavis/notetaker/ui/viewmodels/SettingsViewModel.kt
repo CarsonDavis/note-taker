@@ -21,7 +21,8 @@ import javax.inject.Inject
 data class SettingsUiState(
     val username: String = "",
     val repoFullName: String = "",
-    val isAssistantDefault: Boolean = false
+    val isAssistantDefault: Boolean = false,
+    val authType: String = "" // "pat", "oauth", or ""
 )
 
 @HiltViewModel
@@ -46,14 +47,17 @@ class SettingsViewModel @Inject constructor(
             combine(
                 authManager.username,
                 authManager.repoOwner,
-                authManager.repoName
-            ) { username, owner, name ->
-                Triple(username, owner, name)
-            }.collect { (username, owner, name) ->
+                authManager.repoName,
+                authManager.authType
+            ) { username, owner, name, authType ->
+                data class AuthInfo(val username: String?, val owner: String?, val name: String?, val authType: String?)
+                AuthInfo(username, owner, name, authType)
+            }.collect { info ->
                 _uiState.update {
                     it.copy(
-                        username = username ?: "",
-                        repoFullName = if (owner != null && name != null) "$owner/$name" else ""
+                        username = info.username ?: "",
+                        repoFullName = if (info.owner != null && info.name != null) "${info.owner}/${info.name}" else "",
+                        authType = info.authType ?: ""
                     )
                 }
             }

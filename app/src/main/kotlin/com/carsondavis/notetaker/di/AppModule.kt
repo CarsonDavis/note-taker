@@ -1,8 +1,12 @@
 package com.carsondavis.notetaker.di
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.room.Room
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKeys
 import com.carsondavis.notetaker.data.api.GitHubApi
+import com.carsondavis.notetaker.data.api.GitHubInstallationApi
 import com.carsondavis.notetaker.data.local.AppDatabase
 import com.carsondavis.notetaker.data.local.PendingNoteDao
 import com.carsondavis.notetaker.data.local.SubmissionDao
@@ -24,6 +28,21 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
+
+    @Provides
+    @Singleton
+    fun provideEncryptedSharedPreferences(
+        @ApplicationContext context: Context
+    ): SharedPreferences {
+        val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
+        return EncryptedSharedPreferences.create(
+            "auth_prefs",
+            masterKeyAlias,
+            context,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    }
 
     @Provides
     @Singleton
@@ -61,6 +80,12 @@ object AppModule {
     @Singleton
     fun provideGitHubApi(retrofit: Retrofit): GitHubApi {
         return retrofit.create(GitHubApi::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideGitHubInstallationApi(retrofit: Retrofit): GitHubInstallationApi {
+        return retrofit.create(GitHubInstallationApi::class.java)
     }
 
     @Provides

@@ -15,6 +15,7 @@ ksp = "2.3.5"
 work = "2.10.1"
 hilt-work = "1.2.0"
 markwon = "4.6.2"
+security-crypto = "1.0.0"
 
 [libraries]
 # Compose BOM
@@ -66,6 +67,9 @@ markwon-core = { group = "io.noties.markwon", name = "core", version.ref = "mark
 
 # DataStore
 datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
+
+# Security
+security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "security-crypto" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

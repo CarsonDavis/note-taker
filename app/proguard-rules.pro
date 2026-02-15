@@ -29,3 +29,8 @@
 
 # Keep R8 from stripping Markwon reflection
 -dontwarn io.noties.markwon.**
+
+# Tink (used by EncryptedSharedPreferences)
+-keep class com.google.crypto.tink.** { *; }
+-dontwarn com.google.errorprone.annotations.**
+-dontwarn javax.annotation.**
