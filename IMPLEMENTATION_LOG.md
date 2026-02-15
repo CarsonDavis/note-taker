@@ -568,3 +568,16 @@ Complete visual redesign of the auth setup screen. Replaced the scattered step-b
 - `./gradlew assembleDebug` → BUILD SUCCESSFUL
 - Installed on device via `adb install`, visually verified both cards, help dialogs, PAT toggle
 
+## M34: OAuth Token Revocation on Sign-Out (2026-02-14)
+
+**What was built:**
+Token revocation on sign-out for OAuth users. When an OAuth user taps Sign Out, the app now: (1) shows a confirmation dialog explaining revocation and offering a link to uninstall the GitHub App entirely, (2) revokes the access token via GitHub's API before clearing local storage. PAT users are unaffected — they sign out immediately with no dialog.
+
+**Changes:**
+1. **`data/auth/OAuthTokenExchanger.kt`** — Added `revokeToken(accessToken: String): Boolean` method that calls `DELETE https://api.github.com/applications/{client_id}/token` with Basic auth (`client_id:client_secret`). Returns true on 204, false on any error. Wrapped in try/catch for best-effort revocation. Added `RevokeTokenRequest` data class with `@Serializable`.
+2. **`ui/viewmodels/SettingsViewModel.kt`** — Injected `OAuthTokenExchanger` and `SharedPreferences` (EncryptedSharedPreferences). Added `isSigningOut: Boolean` to `SettingsUiState`. Extracted `revokeOAuthTokenIfNeeded()` helper that reads auth type and token, calls `revokeToken()` with 5s timeout if OAuth. Updated `signOut()` and `clearAllData()` to accept `onComplete: () -> Unit` callback — sets `isSigningOut = true`, revokes token, clears storage, then invokes callback.
+3. **`ui/screens/SettingsScreen.kt`** — Sign Out button now shows a confirmation dialog for OAuth users (PAT users sign out immediately). Dialog text explains revocation and offers an "Uninstall from GitHub" button that opens `https://github.com/settings/installations`. Three buttons: "Uninstall from GitHub" (OutlinedButton), "Cancel" (TextButton), "Sign Out" (red Button). Sign Out button shows a spinner while `isSigningOut` is true. Delete All Data also uses the new `onComplete` callback for navigation.
+
+**How verified:**
+- `./gradlew assembleDebug` → BUILD SUCCESSFUL
+

@@ -2,10 +2,12 @@ package com.carsondavis.notetaker.ui.viewmodels
 
 import android.app.role.RoleManager
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkManager
 import com.carsondavis.notetaker.data.auth.AuthManager
+import com.carsondavis.notetaker.data.auth.OAuthTokenExchanger
 import com.carsondavis.notetaker.data.local.PendingNoteDao
 import com.carsondavis.notetaker.data.local.SubmissionDao
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -14,21 +16,26 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
 data class SettingsUiState(
     val username: String = "",
     val repoFullName: String = "",
     val isAssistantDefault: Boolean = false,
-    val authType: String = "" // "pat", "oauth", or ""
+    val authType: String = "", // "pat", "oauth", or ""
+    val isSigningOut: Boolean = false
 )
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val authManager: AuthManager,
+    private val oAuthTokenExchanger: OAuthTokenExchanger,
+    private val encryptedPrefs: SharedPreferences,
     private val submissionDao: SubmissionDao,
     private val pendingNoteDao: PendingNoteDao,
     private val workManager: WorkManager
@@ -70,18 +77,35 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(isAssistantDefault = isDefault) }
     }
 
-    fun signOut() {
+    fun signOut(onComplete: () -> Unit) {
         viewModelScope.launch {
+            _uiState.update { it.copy(isSigningOut = true) }
+            revokeOAuthTokenIfNeeded()
             authManager.signOut()
+            _uiState.update { it.copy(isSigningOut = false) }
+            onComplete()
         }
     }
 
-    fun clearAllData() {
+    fun clearAllData(onComplete: () -> Unit) {
         viewModelScope.launch {
+            _uiState.update { it.copy(isSigningOut = true) }
+            revokeOAuthTokenIfNeeded()
             workManager.cancelAllWork()
             pendingNoteDao.deleteAll()
             submissionDao.deleteAll()
             authManager.signOut()
+            _uiState.update { it.copy(isSigningOut = false) }
+            onComplete()
+        }
+    }
+
+    private suspend fun revokeOAuthTokenIfNeeded() {
+        val authType = authManager.authType.first() ?: return
+        if (authType != "oauth") return
+        val token = encryptedPrefs.getString("access_token", null) ?: return
+        withTimeoutOrNull(5_000L) {
+            oAuthTokenExchanger.revokeToken(token)
         }
     }
 }

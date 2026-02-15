@@ -2,6 +2,7 @@ package com.carsondavis.notetaker.ui.screens
 
 import android.content.ComponentName
 import android.content.Intent
+import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,10 +29,12 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -62,6 +66,7 @@ fun SettingsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showSignOutDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val lifecycleState by lifecycleOwner.lifecycle.currentStateFlow.collectAsState()
@@ -141,14 +146,28 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(
                             onClick = {
-                                viewModel.signOut()
-                                onSignedOut()
+                                if (uiState.authType == "oauth") {
+                                    showSignOutDialog = true
+                                } else {
+                                    viewModel.signOut { onSignedOut() }
+                                }
                             },
+                            enabled = !uiState.isSigningOut,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.error
                             )
                         ) {
-                            Text("Sign Out")
+                            if (uiState.isSigningOut) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onError
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Signing Out...")
+                            } else {
+                                Text("Sign Out")
+                            }
                         }
                     } else {
                         Text("Not signed in", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -354,8 +373,7 @@ fun SettingsScreen(
                 TextButton(
                     onClick = {
                         showDeleteDialog = false
-                        viewModel.clearAllData()
-                        onSignedOut()
+                        viewModel.clearAllData { onSignedOut() }
                     }
                 ) {
                     Text("Delete", color = MaterialTheme.colorScheme.error)
@@ -364,6 +382,62 @@ fun SettingsScreen(
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
                     Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (showSignOutDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                if (!uiState.isSigningOut) showSignOutDialog = false
+            },
+            title = { Text("Sign out of GitJot?") },
+            text = {
+                Text("Signing out disconnects GitJot from your repository, but the GitJot app will remain installed on your GitHub account. To fully remove it, uninstall GitJot from GitHub Settings.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.signOut {
+                            showSignOutDialog = false
+                            onSignedOut()
+                        }
+                    },
+                    enabled = !uiState.isSigningOut,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    if (uiState.isSigningOut) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onError
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    Text("Sign Out")
+                }
+            },
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(
+                        onClick = {
+                            if (!uiState.isSigningOut) showSignOutDialog = false
+                        }
+                    ) {
+                        Text("Cancel")
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            context.startActivity(
+                                Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/settings/installations"))
+                            )
+                        }
+                    ) {
+                        Text("Uninstall from GitHub")
+                    }
                 }
             }
         )

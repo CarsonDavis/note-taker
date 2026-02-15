@@ -94,6 +94,7 @@ Accessible from the top bar of the note input screen.
 - Help `(?)` icons explain token security and repo format
 - "Need help?" link at bottom opens a YouTube setup walkthrough video
 - To change repo or rotate token: sign out in settings and re-enter
+- OAuth sign-out revokes the access token via GitHub API (best-effort, 5s timeout) and shows a confirmation dialog with option to uninstall the GitHub App from GitHub Settings
 - See `docs/github-app-oauth-implementation.md` for implementation plan
 
 ### FR6: Lock Screen Launch ✅
