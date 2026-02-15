@@ -6,6 +6,7 @@
 - Sign in with GitHub (OAuth) — one tap to connect, no tokens to manage
 - Redesigned setup screen with a cleaner two-step card layout
 - Help icons explain the notes repo template and GitHub permissions
+- Sign-out revokes access and prompts to uninstall the GitHub App
 
 **GitHub OAuth**
 - "Sign in with GitHub" as the primary auth method — installs the GitJot GitHub App on one repo you choose
@@ -19,6 +20,12 @@
 - Help icon on card 2 explains exactly what permissions GitJot gets (read/write one repo, nothing else)
 - PAT flow toggles inline within the connect card instead of expanding a separate section
 - Updated tagline: "Your voice notes, saved to Git, organized by AI."
+
+**Clean Sign-Out**
+- OAuth sign-out shows a confirmation dialog explaining that the GitHub App will remain installed
+- "Uninstall from GitHub" button opens GitHub Settings to fully remove the app
+- Access token is revoked on GitHub's side when you sign out
+- PAT users sign out immediately with no changes to their experience
 
 ## v0.3.0
 
