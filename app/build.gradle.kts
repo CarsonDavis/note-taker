@@ -22,10 +22,10 @@ android {
         applicationId = "com.carsondavis.notetaker"
         minSdk = 29
         targetSdk = 36
-        versionCode = prop("VERSION_CODE")?.toIntOrNull()
-            ?: error("VERSION_CODE must be set in local.properties or environment")
-        versionName = prop("VERSION_NAME")
-            ?: error("VERSION_NAME must be set in local.properties or environment")
+        versionCode = (project.findProperty("VERSION_CODE") as? String)?.toInt()
+            ?: prop("VERSION_CODE")?.toIntOrNull()
+            ?: 1
+        versionName = "0.4.0"  // Bump manually for each release
 
         buildConfigField("String", "GITHUB_CLIENT_ID", "\"${prop("GITHUB_CLIENT_ID") ?: ""}\"")
         buildConfigField("String", "GITHUB_CLIENT_SECRET", "\"${prop("GITHUB_CLIENT_SECRET") ?: ""}\"")

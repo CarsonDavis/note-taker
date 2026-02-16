@@ -581,3 +581,26 @@ Token revocation on sign-out for OAuth users. When an OAuth user taps Sign Out, 
 **How verified:**
 - `./gradlew assembleDebug` → BUILD SUCCESSFUL
 
+## M35: Three-Branch CI/CD Pipeline with Google Play (2026-02-15)
+
+**What was built:**
+Three-branch deployment pipeline (`develop → staging → master`) with automated Google Play uploads, replacing the never-fired tag-based workflow.
+
+**Changes:**
+1. **Created `docs/DEPLOYMENT.md`** — Comprehensive deployment guide: branch strategy (develop/staging/master), how builds work, versioning conventions (versionCode from `run_number + 100`, versionName as manual semver), step-by-step release process, Google Play bootstrap (service account via Users and permissions, first manual upload, draft→completed transition, 14-day closed testing), hotfix process, troubleshooting common errors.
+2. **Modified `app/build.gradle.kts`** — versionCode priority chain: Gradle property (`-PVERSION_CODE`) → env var/local.properties via `prop()` → fallback `1`. versionName hardcoded to `"0.4.0"` (bumped manually). Fresh clones build without any config.
+3. **Created `.github/workflows/deploy.yml`** — Single workflow triggered on push to `staging` or `master`. Three jobs: `build` (shared, builds signed AAB, uploads artifact), `deploy-staging` (conditional on staging branch, uploads to internal track), `deploy-production` (conditional on master branch, uploads to production track with whatsnew). Version code = `run_number + 100`. Both deploy jobs start with `status: draft` for bootstrap.
+4. **Deleted `.github/workflows/release.yml`** — Old tag-based workflow that never fired, replaced by deploy.yml.
+5. **Created `whatsnew/whatsnew-en-US`** — Initial Play Store release notes for v0.4.0 (OAuth sign-in, redesigned setup, token revocation).
+6. **Updated `docs/playstore/checklist.md`** — Phase 7 replaced with link to DEPLOYMENT.md.
+7. **Updated `HANDOFF.md`** — Rewritten to reflect M35 state (OAuth, CI/CD, all features).
+8. **Updated `docs/ROADMAP.md`** — Moved GitHub App OAuth to Completed (was listed as V3 future, completed in M31).
+
+**Key decisions:**
+- Kept `master` as the production branch instead of renaming to `production`. GitHub's branch rename redirects have no guaranteed duration and no SLA — too risky for the Play Store privacy policy URL which points to `blob/master/`.
+- Kept `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` buildConfigFields — they are actively used by `OAuthConfig.kt` for the GitHub App OAuth flow (M31), not dead code.
+
+**How verified:**
+- `./gradlew assembleDebug` → BUILD SUCCESSFUL (versionCode falls back to local.properties value, versionName reads hardcoded "0.4.0")
+- `./gradlew assembleDebug -PVERSION_CODE=101` → BUILD SUCCESSFUL (Gradle property override works)
+

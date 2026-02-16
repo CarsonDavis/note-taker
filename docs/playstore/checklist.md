@@ -102,37 +102,4 @@ If your account predates November 2023, you can skip directly to Phase 6.
 
 ## Phase 7: CI/CD Setup
 
-After the first manual release, set up automated releases via GitHub Actions.
-
-### Create a Google Play Service Account
-- [ ] Go to **Google Cloud Console** → Create a new project (or use existing)
-- [ ] Enable the **Google Play Android Developer API**
-- [ ] Create a **Service Account** with no special roles
-- [ ] Generate a JSON key for the service account
-- [ ] In **Play Console** → Settings → API access → Link the Google Cloud project
-- [ ] Grant the service account **Release manager** permissions for the app
-
-### Configure GitHub Secrets
-Add these 6 secrets to the repository (Settings → Secrets and variables → Actions):
-
-| Secret | Contents |
-|--------|----------|
-| `KEYSTORE_BASE64` | Base64-encoded upload keystore (`base64 -i upload-keystore.jks`) |
-| `KEYSTORE_PASSWORD` | Keystore password |
-| `KEY_ALIAS` | Key alias (e.g., `upload-key`) |
-| `KEY_PASSWORD` | Key password |
-| `PLAY_SERVICE_ACCOUNT_JSON` | Full contents of the service account JSON key file |
-| `PLAY_PACKAGE_NAME` | `com.carsondavis.notetaker` |
-
-### Trigger a Release
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-```
-
-The workflow (`.github/workflows/release.yml`) will:
-1. Build a signed AAB
-2. Upload it to the Play Store **internal** track
-3. Attach the AAB to the GitHub release
-
-You then promote from internal → production manually in Play Console.
+See [DEPLOYMENT.md](../DEPLOYMENT.md) for the full CI/CD pipeline setup, including service account creation, GitHub secrets, branch strategy, and automated deployments.

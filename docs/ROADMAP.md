@@ -8,10 +8,10 @@ Notes are queued locally in Room and retried via WorkManager when network is ava
 ### Browse Notes ✅
 Read-only repo browser with directory listing, file viewer, and Markwon markdown rendering. Accessible from the top bar and from lock screen (with keyguard dismiss).
 
-## V3 Features
+### GitHub App OAuth ✅
+GitHub App OAuth as primary auth (M31). One-tap "Sign in with GitHub" installs the GitJot GitHub App on a user-chosen repo. PKCE-protected flow, EncryptedSharedPreferences token storage, PAT as fallback. Token revocation on sign-out (M34).
 
-### GitHub App OAuth (Replace PAT with One-Tap Repo Selection)
-Replace the manual PAT setup with a GitHub App OAuth flow. User taps "Connect to GitHub", picks a repo on GitHub's native UI, and the app gets scoped access automatically. No token pasting, no visiting settings pages. See [implementation plan](github-app-oauth-implementation.md) and [research report](research/github-app-oauth-option-b/report.md).
+## V3 Features
 
 ### Donate / Tip Button
 In-app option for users to support development. Could be a simple link to GitHub Sponsors, Buy Me a Coffee, or similar. No in-app purchases — just an external link.
