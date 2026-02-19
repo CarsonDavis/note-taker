@@ -127,7 +127,7 @@ Minimal Android app for capturing notes and pushing them to a GitHub repo via th
 
 ### CI/CD
 
-- `.github/workflows/deploy.yml` — GitHub Actions: build signed AAB and upload to Google Play on push to `staging` (internal track) or `master` (production track)
+- `.github/workflows/deploy.yml` — GitHub Actions: build signed AAB and upload to Google Play on push to `staging` (closed testing) or `master` (production track)
 
 ### Deployment
 

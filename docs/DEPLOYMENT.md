@@ -6,11 +6,11 @@ Single source of truth for the CI/CD pipeline, versioning, and Google Play publi
 
 ```
 feature branches → develop → staging → master
-                   (no deploy)  (internal track)  (production track)
+                   (no deploy)  (closed testing)  (production track)
 ```
 
 - **`develop`** — daily driver. Push freely, nothing deploys.
-- **`staging`** — merge develop here to auto-deploy to Google Play **internal testing** track.
+- **`staging`** — merge develop here to auto-deploy to Google Play **closed testing** track.
 - **`master`** — merge staging here to auto-deploy to Google Play **production** track.
 - **Feature branches** — `feature/<name>` off develop, merge back when done.
 
@@ -25,7 +25,7 @@ A single GitHub Actions workflow (`.github/workflows/deploy.yml`) triggers on pu
 | Job | Runs on | What it does |
 |-----|---------|-------------|
 | `build` | `staging` and `master` | Checkout, build signed AAB, upload as artifact |
-| `deploy-staging` | `staging` only | Download artifact, upload to Play Store **internal** track |
+| `deploy-staging` | `staging` only | Download artifact, upload to Play Store **closed testing** track with release notes |
 | `deploy-production` | `master` only | Download artifact, upload to Play Store **production** track with release notes |
 
 Pushing to `develop` does **not** trigger any workflow.
@@ -141,7 +141,7 @@ Edit `deploy.yml`: change `status: draft` to `status: completed` on both deploy 
 
 Once bootstrap is complete, the pipeline runs hands-free:
 
-- **Merge to `staging`** → AAB uploaded to internal testing track. Install via the Play Store internal testing link to verify on a real device.
+- **Merge to `staging`** → AAB uploaded to closed testing track with release notes. Beta testers can install via the Play Store closed testing link.
 - **Merge to `master`** → AAB uploaded to production track with release notes from `whatsnew/whatsnew-en-US`.
 
 Check upload status in **Play Console → Release → [track] → Release dashboard**.
