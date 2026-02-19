@@ -51,19 +51,25 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: whatsnew
+
       - name: Download AAB artifact
         uses: actions/download-artifact@v4
         with:
           name: signed-aab
 
-      - name: Upload to Play Store (internal track)
+      - name: Upload to Play Store (closed testing track)
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: ${{ secrets.PLAY_PACKAGE_NAME }}
           releaseFiles: app-release.aab
-          track: internal
+          track: alpha
           status: draft
+          whatsNewDirectory: whatsnew
 
   deploy-production:
     needs: build
