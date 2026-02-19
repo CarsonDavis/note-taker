@@ -17,12 +17,13 @@ import com.carsondavis.notetaker.data.local.SubmissionEntity
 import com.carsondavis.notetaker.data.worker.NoteUploadWorker
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import retrofit2.HttpException
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import javax.inject.Singleton
 
-enum class SubmitResult { SENT, QUEUED }
+enum class SubmitResult { SENT, QUEUED, AUTH_FAILED }
 
 @Singleton
 class NoteRepository @Inject constructor(
@@ -81,8 +82,13 @@ class NoteRepository @Inject constructor(
             pendingNoteDao.delete(noteId)
 
             Result.success(SubmitResult.SENT)
-        } catch (_: Exception) {
-            // Failed — schedule WorkManager retry
+        } catch (e: Exception) {
+            if (e is HttpException && (e.code() == 401 || e.code() == 403)) {
+                // Auth failure — delete the pending note and report to UI
+                pendingNoteDao.delete(noteId)
+                return Result.success(SubmitResult.AUTH_FAILED)
+            }
+            // Other failure — schedule WorkManager retry
             scheduleRetry()
             Result.success(SubmitResult.QUEUED)
         }

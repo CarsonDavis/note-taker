@@ -39,8 +39,8 @@ The default and only landing screen. Always opens here.
 ### 2. Settings
 Accessible from the top bar of the note input screen.
 
-- GitHub account — sign in / sign out
-- Repository — shown read-only (sign out to change)
+- GitHub account — sign in / disconnect
+- Repository — shown read-only (disconnect to change)
 - Digital assistant setup — two-step guide: (1) set as default assistant with role detection, (2) set side button to use digital assistant (Samsung `SideKeySettings` intent with fallback)
 - Delete all data — wipe all local data (Room DB, DataStore, WorkManager jobs) with confirmation dialog
 
@@ -82,6 +82,7 @@ Accessible from the top bar of the note input screen.
   5. App discovers the installed repo via `/user/installations` API
   6. Token stored in EncryptedSharedPreferences (Android Keystore-backed)
   7. Non-expiring user tokens — no refresh logic needed
+- **Re-authentication after disconnect** — uses the standard OAuth authorize URL (not the install URL), since the GitHub App remains installed on the user's GitHub account. The app preserves the `installation_id` across disconnect to detect returning users. If the user uninstalled the app from GitHub, the stale installation is detected and the install flow is used instead. "Delete All Data" clears everything including the installation ID (factory reset).
 - **Shared prerequisite** — Fork the template notes repo on GitHub (step 1, visible above both auth methods)
 - **Fallback: Fine-grained PAT** — collapsible 4-step guided flow (AnimatedVisibility):
   1. Enter repository as `owner/repo` or paste full GitHub URL (auto-parsed)
@@ -93,8 +94,13 @@ Accessible from the top bar of the note input screen.
 - "What am I agreeing to?" link on OAuth flow explains permissions in plain language (one-repo read/write only, revocable)
 - Help `(?)` icons explain token security and repo format
 - "Need help?" link at bottom opens a YouTube setup walkthrough video
-- To change repo or rotate token: sign out in settings and re-enter
-- OAuth sign-out revokes the access token via GitHub API (best-effort, 5s timeout) and shows a confirmation dialog with option to uninstall the GitHub App from GitHub Settings
+- To change repo or rotate token: disconnect in settings and re-enter
+- OAuth disconnect revokes the access token via GitHub API (best-effort, 5s timeout) and shows a confirmation dialog explaining GitJot stays installed on GitHub
+- Disconnect dialog warns about pending unsent notes (all auth types) in red error text; single "Disconnect" button (red) + "Cancel"
+- "Manage on GitHub" button in Settings for OAuth users opens GitHub's installation settings
+- Reactive 401/403 detection: note submit shows "Session expired" and preserves note text; browse shows "Session expired"; worker stops retrying
+- Repo selection dialog when GitHub App has access to multiple repositories
+- Two-tap OAuth hint: "Already installed GitJot on GitHub? Tap again to continue."
 - See `docs/github-app-oauth-implementation.md` for implementation plan
 
 ### FR6: Lock Screen Launch ✅
@@ -107,6 +113,7 @@ Accessible from the top bar of the note input screen.
 - Notes are always saved to a local Room queue before attempting GitHub push
 - On success, note is removed from queue and recorded in submission history
 - On failure (no network, API error), note stays queued and WorkManager schedules retry with network connectivity constraint
+- On auth failure (401/403), worker marks note as `auth_failed` and stops retrying; note submit shows "Session expired" and preserves user's text
 - Handles 422 conflict (duplicate filename) by appending suffix
 - UI shows "Queued" animation on submit failure and pending count badge
 - Count drops to 0 automatically when WorkManager succeeds in the background

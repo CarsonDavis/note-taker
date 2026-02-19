@@ -78,7 +78,11 @@ class NoteUploadWorker @AssistedInject constructor(
                     )
                 )
                 pendingNoteDao.delete(note.id)
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                if (e is HttpException && (e.code() == 401 || e.code() == 403)) {
+                    pendingNoteDao.updateStatus(note.id, "auth_failed")
+                    return Result.failure()
+                }
                 pendingNoteDao.updateStatus(note.id, "failed")
                 return Result.retry()
             }

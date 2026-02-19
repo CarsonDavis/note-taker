@@ -187,6 +187,40 @@ fun AuthScreen(
         )
     }
 
+    // Repo selection dialog
+    if (uiState.showRepoSelection) {
+        AlertDialog(
+            onDismissRequest = { viewModel.cancelRepoSelection() },
+            title = { Text("Select a Repository") },
+            text = {
+                Column {
+                    Text(
+                        "Multiple repositories are connected. Choose which one to use for your notes.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    uiState.availableRepos.forEach { repo ->
+                        TextButton(
+                            onClick = { viewModel.selectRepo(repo.owner.login, repo.name) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = repo.fullName,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { viewModel.cancelRepoSelection() }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     Surface(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -337,6 +371,16 @@ fun AuthScreen(
                                 text = uiState.error!!,
                                 color = MaterialTheme.colorScheme.error,
                                 style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+
+                        // Install hint for two-tap case
+                        if (uiState.showInstallHint && uiState.error == null) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "Already installed GitJot on GitHub? Tap again to continue.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
 

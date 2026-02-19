@@ -203,18 +203,29 @@ class NoteViewModel @Inject constructor(
             val result = repository.submitNote(text)
 
             result.onSuccess { submitResult ->
-                confirmedText = ""
                 when (submitResult) {
                     SubmitResult.SENT -> {
+                        confirmedText = ""
                         fetchTopic()
                         _uiState.update {
                             it.copy(noteText = "", isSubmitting = false, submitSuccess = true)
                         }
                     }
                     SubmitResult.QUEUED -> {
+                        confirmedText = ""
                         _uiState.update {
                             it.copy(noteText = "", isSubmitting = false, submitQueued = true)
                         }
+                    }
+                    SubmitResult.AUTH_FAILED -> {
+                        // Preserve note text so user doesn't lose their work
+                        _uiState.update {
+                            it.copy(
+                                isSubmitting = false,
+                                submitError = "Session expired. Please disconnect and sign back in from Settings."
+                            )
+                        }
+                        return@onSuccess // Don't restart voice
                     }
                 }
                 // Restart voice if we were in voice mode
