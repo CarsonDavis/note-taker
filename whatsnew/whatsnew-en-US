@@ -1,3 +1,5 @@
-- Sign in with GitHub — one tap to connect, no tokens to manage
-- Redesigned setup screen with a cleaner two-step card layout
-- Sign-out now revokes access and prompts to uninstall the GitHub App
+- Clearer settings: "Device Connection" shows your link, "GitJot on GitHub" shows app permissions
+- Disconnect replaces Sign Out — honest about what happens on this device
+- One-tap reconnect after disconnecting (GitHub App stays installed)
+- Choose which repo to use when GitJot has access to multiple repos
+- Session expired errors instead of silent failures when your token is invalid
