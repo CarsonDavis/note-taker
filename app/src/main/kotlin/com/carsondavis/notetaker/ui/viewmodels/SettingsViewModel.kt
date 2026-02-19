@@ -27,7 +27,9 @@ data class SettingsUiState(
     val repoFullName: String = "",
     val isAssistantDefault: Boolean = false,
     val authType: String = "", // "pat", "oauth", or ""
-    val isSigningOut: Boolean = false
+    val isSigningOut: Boolean = false,
+    val pendingCount: Int = 0,
+    val installationId: String = ""
 )
 
 @HiltViewModel
@@ -46,6 +48,7 @@ class SettingsViewModel @Inject constructor(
 
     init {
         observeAuth()
+        observePendingCount()
         checkAssistantRole()
     }
 
@@ -55,18 +58,28 @@ class SettingsViewModel @Inject constructor(
                 authManager.username,
                 authManager.repoOwner,
                 authManager.repoName,
-                authManager.authType
-            ) { username, owner, name, authType ->
-                data class AuthInfo(val username: String?, val owner: String?, val name: String?, val authType: String?)
-                AuthInfo(username, owner, name, authType)
+                authManager.authType,
+                authManager.installationId
+            ) { username, owner, name, authType, installationId ->
+                data class AuthInfo(val username: String?, val owner: String?, val name: String?, val authType: String?, val installationId: String?)
+                AuthInfo(username, owner, name, authType, installationId)
             }.collect { info ->
                 _uiState.update {
                     it.copy(
                         username = info.username ?: "",
                         repoFullName = if (info.owner != null && info.name != null) "${info.owner}/${info.name}" else "",
-                        authType = info.authType ?: ""
+                        authType = info.authType ?: "",
+                        installationId = info.installationId ?: ""
                     )
                 }
+            }
+        }
+    }
+
+    private fun observePendingCount() {
+        viewModelScope.launch {
+            pendingNoteDao.getPendingCount().collect { count ->
+                _uiState.update { it.copy(pendingCount = count) }
             }
         }
     }
@@ -94,7 +107,7 @@ class SettingsViewModel @Inject constructor(
             workManager.cancelAllWork()
             pendingNoteDao.deleteAll()
             submissionDao.deleteAll()
-            authManager.signOut()
+            authManager.clearAllData()
             _uiState.update { it.copy(isSigningOut = false) }
             onComplete()
         }

@@ -604,3 +604,149 @@ Three-branch deployment pipeline (`develop → staging → master`) with automat
 - `./gradlew assembleDebug` → BUILD SUCCESSFUL (versionCode falls back to local.properties value, versionName reads hardcoded "0.4.0")
 - `./gradlew assembleDebug -PVERSION_CODE=101` → BUILD SUCCESSFUL (Gradle property override works)
 
+## M36: OAuth Re-Authentication Flow (2026-02-16)
+
+**What was built:**
+Fix for the OAuth re-authentication flow. Previously, signing out revoked the token and cleared all local storage, but the GitHub App remained installed on the user's GitHub account. Tapping "Sign in with GitHub" always opened the install URL, which doesn't work because the app is already installed — users had to manually uninstall the app from GitHub Settings before re-authenticating.
+
+Now: sign-out preserves the `installation_id` in DataStore. On the next sign-in, the app detects the saved installation ID and opens the standard OAuth authorize URL instead of the install URL. First-time users still get the install flow. "Delete All Data" is a full factory reset (clears installation ID too).
+
+**Changes:**
+1. **`data/auth/AuthManager.kt`** — Added `installationId` read flow. Modified `signOut()` to preserve `installation_id` across clear (read before clear, write back after). Added `clearAllData()` for full wipe (factory reset, used by "Delete All Data"). Added `clearInstallationId()` for stale installation recovery.
+2. **`ui/viewmodels/AuthViewModel.kt`** — Added `cachedInstallationId` field, populated at init from `authManager.installationId.first()`. Added `triedInstallUrl` fallback flag for transition case (no saved installation_id but app already installed on GitHub). Modified `startOAuthFlow()`: if `cachedInstallationId != null` OR `triedInstallUrl`, builds authorize URL with `client_id`, `redirect_uri`, `state`, `code_challenge`, `code_challenge_method=S256`; otherwise uses install URL (first-time flow) and sets `triedInstallUrl = true`. Added state validation in `handleOAuthCallback()`: validates state when non-empty (authorize flow), skips when empty (install flow). Added stale installation recovery: when `getInstallations()` returns empty, clears installation ID, nulls cache, resets `triedInstallUrl`, shows error prompting reinstall — next tap uses install URL.
+3. **`ui/viewmodels/SettingsViewModel.kt`** — `clearAllData()` now calls `authManager.clearAllData()` instead of `authManager.signOut()` so installation ID is wiped on factory reset.
+4. **`docs/github-app-oauth-implementation.md`** — Removed stale token refresh content (3.2 Token refresh section). Updated "The Token" to say non-expiring. Updated "What Changes" table. Updated Security Summary. Resolved open question #4 with date. Added Phase 6: Re-Authentication Flow documenting the full dual-path architecture, stale installation recovery, and factory reset.
+5. **`docs/REQUIREMENTS.md`** — Added re-authentication behavior bullet to FR5 section.
+
+**How verified:**
+- `./gradlew assembleDebug` → BUILD SUCCESSFUL
+- On-device testing needed: sign-out → re-auth (authorize URL), delete all data → sign-in (install URL), stale installation recovery
+
+## M37: Auth Failure Handling (2026-02-16)
+
+**What was built:**
+Three auth failure improvements — worker stops retrying with invalid tokens, pending notes warning on sign-out, and reactive 401/403 detection in ViewModels.
+
+**Changes:**
+
+1. **Item 1 — Worker stops retrying on 401/403:**
+   - `NoteUploadWorker.kt` — Outer catch block now checks for `HttpException` with 401 or 403. Sets note status to `auth_failed` and returns `Result.failure()` instead of retrying. The `auth_failed` status is excluded from `getAllPending()` (which queries `WHERE status IN ('pending', 'failed')`), so the worker won't re-process these notes. `getPendingCount()` still counts all rows so auth_failed notes appear in sign-out warnings.
+
+2. **Item 2 — Pending notes warning on sign-out:**
+   - `SettingsViewModel.kt` — Added `pendingCount: Int = 0` to `SettingsUiState`, observed via `observePendingCount()` in init. Added `signOutAndDeleteNotes(onComplete)` which cancels WorkManager, deletes all pending notes, then signs out.
+   - `SettingsScreen.kt` — Sign Out button now shows dialog for ALL users when `pendingCount > 0` (previously PAT users had no dialog). Dialog shows warning text when pending notes exist, with "Sign Out & Delete Notes" (red, cancels work and deletes) and "Sign Out" (outlined, keeps notes) options. When no pending notes: OAuth gets revocation dialog as before, PAT is immediate.
+
+3. **Item 3 — Reactive 401 detection in ViewModels:**
+   - `NoteRepository.kt` — Added `AUTH_FAILED` to `SubmitResult` enum. In `submitNote()` catch block: `HttpException` 401/403 → deletes the pending note and returns `AUTH_FAILED`. Other exceptions → keep existing QUEUED behavior.
+   - `NoteViewModel.kt` — `AUTH_FAILED` handler preserves `confirmedText` and `noteText` (user doesn't lose their note), sets `submitError` to "Session expired" message, does NOT restart voice input. Moved `confirmedText = ""` into `SENT` and `QUEUED` branches only.
+   - `BrowseViewModel.kt` — Both `loadDirectory()` and `openFile()` failure handlers check for `HttpException` 401/403 → show "Session expired" message instead of generic error.
+
+**How verified:**
+- `./gradlew assembleDebug` → BUILD SUCCESSFUL
+- `./gradlew assembleRelease` → BUILD SUCCESSFUL
+- On-device testing needed: revoke token → submit note → verify "Session expired" error, verify note text preserved, verify Browse shows same error, verify sign-out dialog with pending notes
+
+## M38: OAuth UX Text Improvements (2026-02-16)
+
+**What was built:**
+Three UX text improvements for the OAuth flow — install hint for the two-tap case, better "no repos" error, and better stale installation_id error.
+
+**Changes:**
+
+1. **Item 4 — Two-tap install hint:**
+   - `AuthViewModel.kt` — Added `showInstallHint: Boolean = false` to `AuthUiState`. In `cancelOAuthFlow()`: if `isOAuthInProgress` was true AND `triedInstallUrl` is true, sets `showInstallHint = true`. In `startOAuthFlow()`: clears `showInstallHint`.
+   - `AuthScreen.kt` — Below error display area: when `showInstallHint && error == null`, shows "Already installed GitJot on GitHub? Tap again to continue." in `bodySmall` / `onSurfaceVariant`.
+
+2. **Item 7 — Better "no repos" error:**
+   - `AuthViewModel.kt` — Changed error from "No repositories found..." to "No repositories are connected. Go back to Step 1 and fork the template repo, then tap \"Sign in with GitHub\" and select it during installation."
+
+3. **Item 8 — Better stale installation_id error:**
+   - `AuthViewModel.kt` — Changed error from "GitJot is not installed on your GitHub account..." to "GitJot isn't connected to this account. Tap \"Sign in with GitHub\" to set it up." — works for both uninstalled-from-GitHub and switching-accounts scenarios.
+
+**How verified:**
+- `./gradlew assembleDebug` → BUILD SUCCESSFUL
+- On-device testing needed: first-time OAuth (no installation_id) → back-press → verify hint appears; stale installation_id → verify improved error; no repos → verify improved error
+
+## M39: Manage Repository Access Button (2026-02-16)
+
+**What was built:**
+"Manage Repository Access" button in the Settings Repository card for OAuth users, giving them a path to change which repo the GitHub App has access to.
+
+**Changes:**
+- `SettingsScreen.kt` — In the Repository card, after the "Sign out to change..." text: for OAuth users only, added `OutlinedButton("Manage Repository Access")` that opens `https://github.com/settings/installations`.
+
+**How verified:**
+- `./gradlew assembleDebug` → BUILD SUCCESSFUL
+- On-device testing needed: OAuth user → Settings → verify button visible → tap → verify GitHub opens. PAT user → verify button not shown.
+
+## M40: Repo Selection Dialog (2026-02-16)
+
+**What was built:**
+Repo selection dialog when the GitHub App has access to multiple repositories, instead of silently using the first one.
+
+**Changes:**
+1. **`AuthViewModel.kt`:**
+   - Added `showRepoSelection: Boolean`, `availableRepos: List<InstallationRepo>` to `AuthUiState`
+   - Added private fields: `pendingOAuthToken`, `pendingUsername`, `pendingInstallationId` to hold OAuth state while user picks a repo
+   - In `handleOAuthCallback()`: if `repos.repositories.size > 1`, stores pending state and shows selection dialog instead of auto-selecting `.first()`
+   - If `repos.repositories.size == 1`, keeps current auto-select behavior
+   - Added `selectRepo(owner, name)`: saves token/username/repo/installationId and completes setup
+   - Added `cancelRepoSelection()`: clears pending state
+   - Security: pending token held in memory only (not SavedStateHandle) — if process dies during selection, user re-authenticates
+
+2. **`AuthScreen.kt`:**
+   - Added repo selection `AlertDialog` when `showRepoSelection` is true
+   - Lists each repo as a `TextButton` showing `fullName`
+   - Cancel dismisses and clears state
+
+**How verified:**
+- `./gradlew assembleDebug` → BUILD SUCCESSFUL
+- `./gradlew assembleRelease` → BUILD SUCCESSFUL
+- On-device testing needed: install GitHub App on 2 repos → OAuth flow → verify selection dialog → pick one → verify correct repo saved; 1 repo → verify no dialog
+
+## M41: Settings Screen Cleanup & OAuth Race Condition (2026-02-18)
+
+**What was built:**
+Renamed "Sign Out" → "Disconnect" with honest terminology, renamed "Manage Repository Access" → "Manage on GitHub", simplified disconnect dialog, and fixed `cancelOAuthFlow()` race condition. Added multi-repo support to roadmap.
+
+**Changes:**
+
+1. **`SettingsScreen.kt`** — Terminology and dialog cleanup:
+   - "Signed in as {username}" → "Connected as {username}"
+   - "Sign Out" button → "Disconnect" (red, same styling)
+   - "Signing Out..." spinner → "Disconnecting..."
+   - "Sign out to change repository or token" → "Disconnect to change repository or token"
+   - "Manage Repository Access" → "Manage on GitHub"
+   - Dialog title: "Sign out of GitJot?" → "Disconnect from GitHub?"
+   - Dialog body: "This removes your GitHub credentials from this device." + for OAuth: "GitJot will remain installed on your GitHub account."
+   - Removed "Uninstall from GitHub" link from dialog (redundant with "Manage on GitHub" button in repo card)
+   - Dialog confirm button: "Sign Out" → "Disconnect"
+
+2. **`SettingsViewModel.kt`** — Already cleaned up: `signOutAndDeleteNotes()` removed, `installationId` in state
+
+3. **`AuthViewModel.kt`** — Already done: `isValidating` guard in `cancelOAuthFlow()` prevents `ON_RESUME` from clearing OAuth state during callback processing
+
+4. **`docs/ROADMAP.md`** — Added multi-repo support (connect multiple repos, switch between them)
+
+5. **Documentation** — Updated sign-out → disconnect terminology across REQUIREMENTS.md, auth-flows.md, INDEX.md
+
+**How verified:**
+- `./gradlew assembleDebug` → BUILD SUCCESSFUL
+- On-device testing needed: disconnect dialog (OAuth + PAT, with/without pending notes), "Manage on GitHub" button, OAuth race condition
+
+## M42: Settings Screen Restructure — Device Connection + GitJot on GitHub (2026-02-18)
+
+**What was built:**
+Restructured the Settings screen to separate device-level concerns from GitHub App concerns. The old "GitHub Account" and "Repository" cards mixed both concepts. Now two clearly separated cards:
+
+1. **"Device Connection" card** — Shows what this device is doing: username, repo, auth type (e.g. "CarsonDavis/notes · via GitHub"), helper text explaining that disconnect only removes credentials from this device and reconnection is one tap. Red Disconnect button. "Not connected" when signed out.
+
+2. **"GitJot on GitHub" card** (OAuth only) — Shows what the GitHub App can do: "read & write access to file contents in {repo}, no access to issues, pull requests, or settings." Action text for changing repos or uninstalling. "Manage on GitHub" outlined button. Hidden entirely for PAT users.
+
+**Changes:**
+- `SettingsScreen.kt` — Replaced "GitHub Account" card with "Device Connection" card (combines username + repo + auth type into one subtitle line, adds reconnection helper text, "Not connected" instead of "Not signed in"). Replaced "Repository" card with "GitJot on GitHub" card (conditionally shown for OAuth with installationId, describes actual permissions, keeps Manage on GitHub button). Digital Assistant and Delete All Data cards unchanged.
+
+**How verified:**
+- `./gradlew assembleDebug` → BUILD SUCCESSFUL
+- On-device testing needed: OAuth user (both cards visible), PAT user (only Device Connection), disconnect flow, Manage on GitHub button
+

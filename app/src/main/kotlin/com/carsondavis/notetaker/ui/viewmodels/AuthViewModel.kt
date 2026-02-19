@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
@@ -27,7 +28,10 @@ data class AuthUiState(
     val isSetupComplete: Boolean = false,
     val error: String? = null,
     val isOAuthInProgress: Boolean = false,
-    val showPatFlow: Boolean = false
+    val showPatFlow: Boolean = false,
+    val showInstallHint: Boolean = false,
+    val showRepoSelection: Boolean = false,
+    val availableRepos: List<com.carsondavis.notetaker.data.api.InstallationRepo> = emptyList()
 )
 
 @HiltViewModel
@@ -43,8 +47,23 @@ class AuthViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
+    /** Cached at init so startOAuthFlow() stays non-suspend */
+    private var cachedInstallationId: String? = null
+
+    /** If the install URL was tried but produced no callback (app already installed),
+     *  the next tap falls back to the authorize URL. */
+    private var triedInstallUrl = false
+
+    /** Pending OAuth state held in memory while user picks a repo (not persisted). */
+    private var pendingOAuthToken: String? = null
+    private var pendingUsername: String? = null
+    private var pendingInstallationId: Long? = null
+
     init {
         observeOAuthCallback()
+        viewModelScope.launch {
+            cachedInstallationId = authManager.installationId.first()
+        }
     }
 
     private fun observeOAuthCallback() {
@@ -60,17 +79,30 @@ class AuthViewModel @Inject constructor(
 
     fun startOAuthFlow(): Uri {
         val verifier = OAuthConfig.generateCodeVerifier()
+        val challenge = OAuthConfig.generateCodeChallenge(verifier)
         val state = OAuthConfig.generateState()
 
         // Save to SavedStateHandle (survives process death)
         savedStateHandle["oauth_verifier"] = verifier
         savedStateHandle["oauth_state"] = state
 
-        _uiState.update { it.copy(isOAuthInProgress = true, error = null) }
+        _uiState.update { it.copy(isOAuthInProgress = true, error = null, showInstallHint = false) }
 
-        // The install URL chains to OAuth authorization automatically when
-        // "Request user authorization during installation" is enabled on the GitHub App.
-        return Uri.parse(OAuthConfig.APP_INSTALL_URL)
+        // Returning user (has installation_id or install URL already tried without callback)
+        //   → authorize URL (re-authorizes without re-installing)
+        // First-time user → install URL (chains to authorization automatically)
+        return if (cachedInstallationId != null || triedInstallUrl) {
+            Uri.parse(OAuthConfig.AUTHORIZE_URL).buildUpon()
+                .appendQueryParameter("client_id", OAuthConfig.CLIENT_ID)
+                .appendQueryParameter("redirect_uri", OAuthConfig.REDIRECT_URI_HTTPS)
+                .appendQueryParameter("state", state)
+                .appendQueryParameter("code_challenge", challenge)
+                .appendQueryParameter("code_challenge_method", "S256")
+                .build()
+        } else {
+            triedInstallUrl = true
+            Uri.parse(OAuthConfig.APP_INSTALL_URL)
+        }
     }
 
     private fun handleOAuthCallback(code: String, state: String) {
@@ -84,9 +116,14 @@ class AuthViewModel @Inject constructor(
             return
         }
 
-        // Note: GitHub App installation flow doesn't return state parameter,
-        // so we skip state validation for the install flow. PKCE still protects
-        // against code interception.
+        // Validate state when present (authorize flow returns it).
+        // Install flow omits state — PKCE still protects against code interception.
+        if (state.isNotEmpty() && state != expectedState) {
+            _uiState.update {
+                it.copy(isOAuthInProgress = false, error = "OAuth state mismatch. Please try again.")
+            }
+            return
+        }
 
         _uiState.update { it.copy(isValidating = true, error = null) }
 
@@ -102,11 +139,17 @@ class AuthViewModel @Inject constructor(
                 // Discover installation and repo
                 val installations = installationApi.getInstallations("Bearer $accessToken")
                 if (installations.installations.isEmpty()) {
+                    // No installation found — either stale installation_id or
+                    // authorize URL was tried without the app being installed.
+                    // Reset to install URL for next attempt.
+                    authManager.clearInstallationId()
+                    cachedInstallationId = null
+                    triedInstallUrl = false
                     _uiState.update {
                         it.copy(
                             isValidating = false,
                             isOAuthInProgress = false,
-                            error = "No GitHub App installation found. Please install GitJot on a repository."
+                            error = "GitJot isn't connected to this account. Tap \"Sign in with GitHub\" to set it up."
                         )
                     }
                     return@launch
@@ -123,7 +166,23 @@ class AuthViewModel @Inject constructor(
                         it.copy(
                             isValidating = false,
                             isOAuthInProgress = false,
-                            error = "No repositories found. Please select a repository when installing GitJot."
+                            error = "No repositories are connected. Go back to Step 1 and fork the template repo, then tap \"Sign in with GitHub\" and select it during installation."
+                        )
+                    }
+                    return@launch
+                }
+
+                if (repos.repositories.size > 1) {
+                    // Multiple repos — let user choose
+                    pendingOAuthToken = accessToken
+                    pendingUsername = user.login
+                    pendingInstallationId = installation.id
+                    _uiState.update {
+                        it.copy(
+                            isValidating = false,
+                            isOAuthInProgress = false,
+                            showRepoSelection = true,
+                            availableRepos = repos.repositories
                         )
                     }
                     return@launch
@@ -135,6 +194,7 @@ class AuthViewModel @Inject constructor(
                 authManager.saveOAuthTokens(accessToken, user.login)
                 authManager.saveRepo(repo.owner.login, repo.name)
                 authManager.saveInstallationId(installation.id.toString())
+                cachedInstallationId = installation.id.toString()
 
                 // Clear saved OAuth state
                 savedStateHandle.remove<String>("oauth_verifier")
@@ -160,7 +220,54 @@ class AuthViewModel @Inject constructor(
     }
 
     fun cancelOAuthFlow() {
-        _uiState.update { it.copy(isOAuthInProgress = false) }
+        if (_uiState.value.isValidating) return  // callback is being processed
+        val wasInProgress = _uiState.value.isOAuthInProgress
+        _uiState.update {
+            it.copy(
+                isOAuthInProgress = false,
+                showInstallHint = wasInProgress && triedInstallUrl
+            )
+        }
+    }
+
+    fun selectRepo(owner: String, name: String) {
+        val token = pendingOAuthToken ?: return
+        val username = pendingUsername ?: return
+        val installationId = pendingInstallationId ?: return
+
+        viewModelScope.launch {
+            authManager.saveOAuthTokens(token, username)
+            authManager.saveRepo(owner, name)
+            authManager.saveInstallationId(installationId.toString())
+            cachedInstallationId = installationId.toString()
+
+            pendingOAuthToken = null
+            pendingUsername = null
+            pendingInstallationId = null
+
+            savedStateHandle.remove<String>("oauth_verifier")
+            savedStateHandle.remove<String>("oauth_state")
+
+            _uiState.update {
+                it.copy(
+                    showRepoSelection = false,
+                    availableRepos = emptyList(),
+                    isSetupComplete = true
+                )
+            }
+        }
+    }
+
+    fun cancelRepoSelection() {
+        pendingOAuthToken = null
+        pendingUsername = null
+        pendingInstallationId = null
+        _uiState.update {
+            it.copy(
+                showRepoSelection = false,
+                availableRepos = emptyList()
+            )
+        }
     }
 
     // --- PAT fallback flow ---

@@ -110,7 +110,7 @@ fun SettingsScreen(
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
-            // GitHub Account section
+            // Device Connection section
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
@@ -119,7 +119,7 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "GitHub Account",
+                        text = "Device Connection",
                         style = MaterialTheme.typography.titleMedium
                     )
                     Spacer(modifier = Modifier.height(8.dp))
@@ -131,22 +131,36 @@ fun SettingsScreen(
                                 tint = MaterialTheme.colorScheme.primary
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Signed in as ${uiState.username}")
+                            Text("Connected as ${uiState.username}")
                         }
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = when (uiState.authType) {
-                                "oauth" -> "Connected via GitHub"
-                                "pat" -> "Connected via Personal Access Token"
-                                else -> ""
+                            text = buildString {
+                                if (uiState.repoFullName.isNotEmpty()) {
+                                    append(uiState.repoFullName)
+                                    append(" · ")
+                                }
+                                append(
+                                    when (uiState.authType) {
+                                        "oauth" -> "via GitHub"
+                                        "pat" -> "via Personal Access Token"
+                                        else -> ""
+                                    }
+                                )
                             },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "This device is authenticated to push notes to your repo. Disconnecting removes credentials from this device only — you can reconnect with one tap.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
                         Button(
                             onClick = {
-                                if (uiState.authType == "oauth") {
+                                if (uiState.authType == "oauth" || uiState.pendingCount > 0) {
                                     showSignOutDialog = true
                                 } else {
                                     viewModel.signOut { onSignedOut() }
@@ -164,45 +178,61 @@ fun SettingsScreen(
                                     color = MaterialTheme.colorScheme.onError
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Signing Out...")
+                                Text("Disconnecting...")
                             } else {
-                                Text("Sign Out")
+                                Text("Disconnect")
                             }
                         }
                     } else {
-                        Text("Not signed in", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Not connected", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Repository section
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer
-                )
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Repository",
-                        style = MaterialTheme.typography.titleMedium
+            // GitJot on GitHub section (OAuth only)
+            if (uiState.authType == "oauth" && uiState.installationId.isNotEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    if (uiState.repoFullName.isNotEmpty()) {
-                        Text(uiState.repoFullName)
-                        Spacer(modifier = Modifier.height(4.dp))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "Sign out to change repository or token",
+                            text = "GitJot on GitHub",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = if (uiState.repoFullName.isNotEmpty()) {
+                                "GitJot has read & write access to file contents in ${uiState.repoFullName}. No access to issues, pull requests, or settings."
+                            } else {
+                                "GitJot has read & write access to file contents. No access to issues, pull requests, or settings."
+                            },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                    } else {
-                        Text("No repository selected", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Change repo access, add repos, or uninstall GitJot from your GitHub account.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedButton(
+                            onClick = {
+                                context.startActivity(
+                                    Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/settings/installations/${uiState.installationId}"))
+                                )
+                            }
+                        ) {
+                            Text("Manage on GitHub")
+                        }
                     }
                 }
+                Spacer(modifier = Modifier.height(12.dp))
             }
-            Spacer(modifier = Modifier.height(12.dp))
 
             // Digital Assistant section
             Card(
@@ -392,9 +422,23 @@ fun SettingsScreen(
             onDismissRequest = {
                 if (!uiState.isSigningOut) showSignOutDialog = false
             },
-            title = { Text("Sign out of GitJot?") },
+            title = { Text("Disconnect from GitHub?") },
             text = {
-                Text("Signing out disconnects GitJot from your repository, but the GitJot app will remain installed on your GitHub account. To fully remove it, uninstall GitJot from GitHub Settings.")
+                Column {
+                    if (uiState.pendingCount > 0) {
+                        val noteWord = if (uiState.pendingCount == 1) "note" else "notes"
+                        Text(
+                            "You have ${uiState.pendingCount} unsent $noteWord that will not be uploaded until you sign back in.",
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    Text("This removes your GitHub credentials from this device.")
+                    if (uiState.authType == "oauth") {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("GitJot will remain installed on your GitHub account. To uninstall it, use \"Manage on GitHub\" in Settings.")
+                    }
+                }
             },
             confirmButton = {
                 Button(
@@ -417,27 +461,14 @@ fun SettingsScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                     }
-                    Text("Sign Out")
+                    Text("Disconnect")
                 }
             },
             dismissButton = {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(
-                        onClick = {
-                            if (!uiState.isSigningOut) showSignOutDialog = false
-                        }
-                    ) {
-                        Text("Cancel")
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            context.startActivity(
-                                Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/settings/installations"))
-                            )
-                        }
-                    ) {
-                        Text("Uninstall from GitHub")
-                    }
+                TextButton(
+                    onClick = { if (!uiState.isSigningOut) showSignOutDialog = false }
+                ) {
+                    Text("Cancel")
                 }
             }
         )

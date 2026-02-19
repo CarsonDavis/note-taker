@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.carsondavis.notetaker.data.api.GitHubDirectoryEntry
 import com.carsondavis.notetaker.data.repository.NoteRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import retrofit2.HttpException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -57,11 +58,13 @@ class BrowseViewModel @Inject constructor(
                     )
                 }
             }.onFailure { e ->
+                val message = if (e is HttpException && (e.code() == 401 || e.code() == 403)) {
+                    "Session expired. Please disconnect and sign back in from Settings."
+                } else {
+                    e.message ?: "Failed to load directory"
+                }
                 _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        error = e.message ?: "Failed to load directory"
-                    )
+                    it.copy(isLoading = false, error = message)
                 }
             }
         }
@@ -79,11 +82,13 @@ class BrowseViewModel @Inject constructor(
                     it.copy(fileContent = content, isFileLoading = false)
                 }
             }.onFailure { e ->
+                val message = if (e is HttpException && (e.code() == 401 || e.code() == 403)) {
+                    "Session expired. Please disconnect and sign back in from Settings."
+                } else {
+                    e.message ?: "Failed to load file"
+                }
                 _uiState.update {
-                    it.copy(
-                        isFileLoading = false,
-                        error = e.message ?: "Failed to load file"
-                    )
+                    it.copy(isFileLoading = false, error = message)
                 }
             }
         }

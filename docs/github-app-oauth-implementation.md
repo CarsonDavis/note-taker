@@ -38,8 +38,8 @@ The OAuth flow replaces all of that with: tap "Connect to GitHub" → pick a rep
 
 - **Scoped to one repo** — the intersection of: app permissions (Contents
   read/write only) + the repo the user selected + the user's own access
-- **Expires in 8 hours** — auto-refreshed transparently using a 6-month
-  refresh token
+- **Non-expiring** — token expiration is disabled on the GitHub App. No
+  refresh logic needed.
 - **Stored in EncryptedSharedPreferences** backed by Android Keystore
 
 ---
@@ -150,7 +150,9 @@ https://github.com/apps/gitjot-oauth/installations/select_target
 GitHub handles chaining from installation → OAuth authorization automatically
 when "Request user authorization during installation" is enabled.
 
-For returning users who already installed the app, open the standard OAuth URL:
+For returning users who already installed the app (detected by having a saved
+`installation_id` in DataStore — preserved across sign-out), open the standard
+OAuth authorize URL:
 
 ```
 https://github.com/login/oauth/authorize
@@ -160,6 +162,10 @@ https://github.com/login/oauth/authorize
   &code_challenge=CHALLENGE
   &code_challenge_method=S256
 ```
+
+The app chooses which URL at runtime:
+- **No `installation_id` saved** → install URL (first-time flow)
+- **`installation_id` exists** → authorize URL (returning user, app already installed)
 
 #### 2.2 Handle callback
 
@@ -197,8 +203,8 @@ client_id=CLIENT_ID
 &code_verifier=CODE_VERIFIER
 ```
 
-Response contains `access_token`, `refresh_token`, `expires_in`, and
-`refresh_token_expires_in`.
+Response contains `access_token` (and optionally `refresh_token`, `expires_in`
+if token expiration is enabled — currently disabled).
 
 ### Phase 3: Token Storage & Refresh
 
@@ -208,29 +214,13 @@ Replace the current `AuthManager` (Preferences DataStore with plain token +
 repo string) with secure storage:
 
 - `access_token` → EncryptedSharedPreferences
-- `refresh_token` → EncryptedSharedPreferences
-- `token_expiry` → computed from `expires_in`, stored alongside
 - `repo` → still needed; fetch from the GitHub API after auth
   (`GET /user/installations` → `GET /installation/repositories`)
 
-#### 3.2 Token refresh
+Token expiration is disabled on the GitHub App, so no refresh token or expiry
+tracking is needed.
 
-Add an OkHttp interceptor or a wrapper function:
-
-```kotlin
-suspend fun getValidToken(): String {
-    if (tokenNotExpired()) return storedAccessToken
-    // Refresh
-    val response = POST /login/oauth/access_token with grant_type=refresh_token
-    // Store new access_token + refresh_token (rotation: old refresh token dies)
-    return response.accessToken
-}
-```
-
-If the refresh token is expired (6 months inactive), clear auth state and
-send the user back through the OAuth flow.
-
-#### 3.3 Repo discovery
+#### 3.2 Repo discovery
 
 After the token exchange, the app needs to know which repo the user selected.
 Call:
@@ -292,6 +282,63 @@ The `GitHubApi` Retrofit interface doesn't change — both PATs and OAuth tokens
 use the same `Authorization: Bearer <token>` header. The only difference is
 token lifecycle management.
 
+### Phase 6: Re-Authentication Flow
+
+When a user signs out, the OAuth token is revoked and local storage is cleared
+— but the GitHub App remains installed on the user's GitHub account. The app
+must handle re-authentication without requiring the user to reinstall the app.
+
+#### 6.1 Sign-out preserves installation_id
+
+`AuthManager.signOut()` reads `installation_id` from DataStore before clearing,
+then writes it back after the clear. This signals "returning OAuth user" on the
+next sign-in attempt.
+
+#### 6.2 Dual-path startOAuthFlow
+
+`AuthViewModel.startOAuthFlow()` checks for a cached `installation_id` or a
+`triedInstallUrl` fallback flag:
+
+- **`installation_id` exists OR install URL already tried** → open the standard
+  OAuth authorize URL (`/login/oauth/authorize`) with `client_id`,
+  `redirect_uri`, `state`, `code_challenge`, `code_challenge_method=S256`.
+  This re-authorizes without re-installing.
+- **No `installation_id` AND first attempt** → open the install URL (first-time
+  flow). Sets `triedInstallUrl = true` so the next attempt falls back to the
+  authorize URL.
+
+The `triedInstallUrl` flag handles the transition case: users who signed out
+before this code change have no saved `installation_id`, but the GitHub App is
+still installed. The install URL shows the app's settings page without
+redirecting back. On the second tap, the authorize URL is used instead, which
+does redirect back with a code.
+
+The `installation_id` is cached at ViewModel init so `startOAuthFlow()` stays
+non-suspend (no UI changes needed).
+
+#### 6.3 State validation
+
+The authorize flow returns `state` in the callback; the install flow omits it.
+`handleOAuthCallback()` validates state when non-empty (authorize flow) and
+skips validation when empty (install flow), maintaining backward compatibility.
+
+#### 6.4 Stale installation_id recovery
+
+If a user signs out and then uninstalls the GitHub App from GitHub Settings,
+the saved `installation_id` becomes stale. When `getInstallations()` returns
+empty after a successful token exchange:
+
+1. Call `authManager.clearInstallationId()` to remove the stale ID
+2. Null out the cached ID
+3. Show error prompting the user to reinstall
+4. Next tap uses the install URL (first-time flow)
+
+#### 6.5 Delete All Data (factory reset)
+
+`clearAllData()` in AuthManager wipes everything including `installation_id`.
+This is a full factory reset — next sign-in will use the install flow regardless
+of whether the GitHub App is still installed on the user's account.
+
 ---
 
 ## Dependencies
@@ -312,13 +359,13 @@ token lifecycle management.
 | Token source | User pastes from github.com | OAuth flow returns it |
 | Repo source | User types `owner/repo` | Fetched from installation API |
 | Token storage | Preferences DataStore (plain) | EncryptedSharedPreferences |
-| Token expiry | Never (unless user sets it) | 8 hours, auto-refreshed |
-| Token refresh | Manual (sign out + re-setup) | Automatic via refresh token |
+| Token expiry | Never (unless user sets it) | Non-expiring (expiration disabled on GitHub App) |
+| Token refresh | Manual (sign out + re-setup) | Sign out and re-authorize (no refresh needed) |
 | API calls | `Bearer ghp_...` | `Bearer ghu_...` (same header) |
 | Permissions | User configures manually | App requests Contents R/W only |
 | `GitHubApi.kt` | No change | No change |
 | `NoteRepository.kt` | No change | No change |
-| `AuthManager.kt` | Rewritten | Handles OAuth tokens + refresh |
+| `AuthManager.kt` | Rewritten | Handles OAuth tokens (no refresh needed) |
 
 ---
 
@@ -329,9 +376,8 @@ token lifecycle management.
   app. GitHub explicitly endorses this for public clients.
 - **PKCE (S256)**: Prevents authorization code interception even if another app
   registers the same custom URI scheme.
-- **Token rotation**: Each refresh invalidates the old refresh token, detecting
-  replay.
-- **8-hour access tokens**: Limits the window if a token leaks.
+- **Non-expiring tokens**: Revoked on sign-out via GitHub API. If a token
+  leaks, user can revoke from GitHub Settings or sign out from the app.
 - **Minimal permissions**: Contents read/write only. No admin, no issues, no
   PRs.
 
@@ -346,5 +392,5 @@ in the research report.
 2. ~~**GitHub Pages repo**~~: ✅ Created `CarsonDavis/gitjot-oauth`, live at `https://madebycarson.com/gitjot-oauth/callback`.
 3. **Device Flow fallback**: Worth implementing as a backup, or keep PAT as
    the only fallback?
-4. ~~**Token expiration setting**~~: ✅ Disabled expiring tokens. Non-expiring tokens keep implementation simple (no refresh logic). Can enable later if needed — existing tokens continue to work.
+4. ~~**Token expiration setting**~~: ✅ Resolved 2026-02-16. Confirmed `ghu_` tokens expire by default when the setting is enabled. Disabled token expiration on the GitHub App — non-expiring tokens keep implementation simple (no refresh logic). Can re-enable later if needed; existing tokens continue to work.
 5. **Do we retire PAT support eventually?** Or keep both paths permanently?

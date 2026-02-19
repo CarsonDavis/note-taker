@@ -1,5 +1,33 @@
 # Changelog
 
+## v0.5.0
+
+**What's New**
+- Settings restructured into "Device Connection" and "GitJot on GitHub" cards
+- "Disconnect" replaces "Sign Out" — honest about what it does
+- One-tap reconnect after disconnecting (no need to reinstall the GitHub App)
+- Repo selection dialog when GitJot has access to multiple repositories
+- Session expired errors when your token is revoked or invalid
+- "Manage on GitHub" button to change repos or uninstall GitJot
+
+**Clearer Settings**
+- "Device Connection" card shows your username, repo, and auth method with a Disconnect button
+- Helper text explains that disconnecting only removes credentials from this device and reconnecting is one tap
+- "GitJot on GitHub" card (OAuth only) describes exact permissions — read & write file contents, nothing else
+- "Manage on GitHub" opens GitHub's installation settings to change repos or uninstall
+
+**Disconnect Flow**
+- "Disconnect" terminology replaces "Sign Out" — this device disconnects, GitJot stays on GitHub
+- Confirmation dialog warns about unsent notes (all auth types)
+- OAuth token revoked on GitHub's side
+- Reconnecting is one tap since the GitHub App stays installed
+
+**Auth Improvements**
+- Repo selection dialog when the GitHub App has access to multiple repos
+- Session expired errors on note submit and browse when token is invalid
+- Worker stops retrying uploads on auth failure instead of looping
+- Better error messages for OAuth edge cases (stale installation, no repos)
+
 ## v0.4.0
 
 **What's New**

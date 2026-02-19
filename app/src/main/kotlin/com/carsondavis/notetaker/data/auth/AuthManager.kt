@@ -66,6 +66,8 @@ class AuthManager @Inject constructor(
 
     val authType: Flow<String?> = context.dataStore.data.map { it[Keys.AUTH_TYPE] }
 
+    val installationId: Flow<String?> = context.dataStore.data.map { it[Keys.INSTALLATION_ID] }
+
     val isAuthenticated: Flow<Boolean> = context.dataStore.data.map {
         encryptedPrefs.getString(EncryptedKeys.ACCESS_TOKEN, null) != null
     }
@@ -115,8 +117,33 @@ class AuthManager @Inject constructor(
         }
     }
 
+    /**
+     * Sign out: revoke token and clear storage, but preserve installation_id
+     * so returning users get the authorize URL instead of the install URL.
+     */
     suspend fun signOut() {
+        val savedInstallationId = context.dataStore.data.first()[Keys.INSTALLATION_ID]
         encryptedPrefs.edit().clear().apply()
         context.dataStore.edit { it.clear() }
+        if (savedInstallationId != null) {
+            context.dataStore.edit { it[Keys.INSTALLATION_ID] = savedInstallationId }
+        }
+    }
+
+    /**
+     * Full wipe: clear everything including installation_id (factory reset).
+     * Used by "Delete All Data" in settings.
+     */
+    suspend fun clearAllData() {
+        encryptedPrefs.edit().clear().apply()
+        context.dataStore.edit { it.clear() }
+    }
+
+    /**
+     * Clear stale installation_id when the GitHub App has been uninstalled
+     * by the user from GitHub Settings.
+     */
+    suspend fun clearInstallationId() {
+        context.dataStore.edit { it.remove(Keys.INSTALLATION_ID) }
     }
 }
