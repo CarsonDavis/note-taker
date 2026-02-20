@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.5.1
+
+**Bug Fix**
+- Fixed OAuth sign-in failing on Play Store builds — CI/CD was not passing OAuth credentials to the build, so `client_id` was empty and token exchange returned 404
+
 ## v0.5.0
 
 **What's New**

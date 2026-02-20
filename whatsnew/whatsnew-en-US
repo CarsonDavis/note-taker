@@ -1,5 +1,1 @@
-- Clearer settings: "Device Connection" shows your link, "GitJot on GitHub" shows app permissions
-- Disconnect replaces Sign Out — honest about what happens on this device
-- One-tap reconnect after disconnecting (GitHub App stays installed)
-- Choose which repo to use when GitJot has access to multiple repos
-- Session expired errors instead of silent failures when your token is invalid
+- Fixed: "Sign in with GitHub" now works on Play Store builds (was broken due to missing build credentials)

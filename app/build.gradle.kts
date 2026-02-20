@@ -25,7 +25,7 @@ android {
         versionCode = (project.findProperty("VERSION_CODE") as? String)?.toInt()
             ?: prop("VERSION_CODE")?.toIntOrNull()
             ?: 1
-        versionName = "0.5.0"  // Bump manually for each release
+        versionName = "0.5.1"  // Bump manually for each release
 
         buildConfigField("String", "GITHUB_CLIENT_ID", "\"${prop("GITHUB_CLIENT_ID") ?: ""}\"")
         buildConfigField("String", "GITHUB_CLIENT_SECRET", "\"${prop("GITHUB_CLIENT_SECRET") ?: ""}\"")

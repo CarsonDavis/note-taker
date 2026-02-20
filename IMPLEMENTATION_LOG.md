@@ -734,6 +734,23 @@ Renamed "Sign Out" → "Disconnect" with honest terminology, renamed "Manage Rep
 - `./gradlew assembleDebug` → BUILD SUCCESSFUL
 - On-device testing needed: disconnect dialog (OAuth + PAT, with/without pending notes), "Manage on GitHub" button, OAuth race condition
 
+## M43: Fix OAuth Credentials Missing from CI/CD Builds (2026-02-19)
+
+**What was built:**
+Bug fix for "Token exchange failed (404)" in Play Store builds. The OAuth credentials (`GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`) were not passed as env vars to the CI build step, so Gradle's `prop()` function fell back to empty strings. Local builds worked because `local.properties` has the values.
+
+**Root cause:** `deploy.yml` passed keystore secrets but not OAuth secrets to the "Build signed AAB" step. The `buildConfigField` entries in `app/build.gradle.kts` compiled with `""` for both client ID and secret.
+
+**Changes:**
+1. **`.github/workflows/deploy.yml`** — Added `GITHUB_CLIENT_ID: ${{ secrets.GITHUB_CLIENT_ID }}` and `GITHUB_CLIENT_SECRET: ${{ secrets.GITHUB_CLIENT_SECRET }}` to the "Build signed AAB" step's `env` block.
+2. **`docs/DEPLOYMENT.md`** — Updated secrets tables from 6 to 8 entries, added both OAuth secrets to the bootstrap checklist and reference table, updated troubleshooting section.
+
+**Manual step required:** Add `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` as GitHub Actions secrets (repo Settings → Secrets and variables → Actions) with values from `local.properties`.
+
+**How verified:**
+- Workflow YAML validated (env var names match `prop()` calls in `build.gradle.kts`)
+- Full verification requires a CI build on `staging` branch and beta tester OAuth test
+
 ## M42: Settings Screen Restructure — Device Connection + GitJot on GitHub (2026-02-18)
 
 **What was built:**

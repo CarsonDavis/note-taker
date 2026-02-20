@@ -116,7 +116,7 @@ After 14 days, apply for production access via the Play Console Dashboard. Once 
 
 ### Step 5: Configure GitHub secrets
 
-Add these 6 secrets to the repository (Settings → Secrets and variables → Actions):
+Add these 8 secrets to the repository (Settings → Secrets and variables → Actions):
 
 | Secret | Value |
 |--------|-------|
@@ -126,6 +126,8 @@ Add these 6 secrets to the repository (Settings → Secrets and variables → Ac
 | `KEY_PASSWORD` | Key password |
 | `PLAY_SERVICE_ACCOUNT_JSON` | Entire JSON key file contents |
 | `PLAY_PACKAGE_NAME` | `com.carsondavis.notetaker` |
+| `GITHUB_CLIENT_ID` | GitHub App OAuth client ID (from `local.properties`) |
+| `GITHUB_CLIENT_SECRET` | GitHub App OAuth client secret (from `local.properties`) |
 
 ### Step 6: First CI deploy (draft mode)
 
@@ -178,6 +180,8 @@ Only referenced by the production deploy job.
 | `KEY_PASSWORD` | Password for the signing key |
 | `PLAY_SERVICE_ACCOUNT_JSON` | Full JSON contents of the Google Play service account key |
 | `PLAY_PACKAGE_NAME` | `com.carsondavis.notetaker` |
+| `GITHUB_CLIENT_ID` | GitHub App OAuth client ID |
+| `GITHUB_CLIENT_SECRET` | GitHub App OAuth client secret |
 
 ## Hotfix Process
 
@@ -212,7 +216,7 @@ The service account needs **app-level** permissions granted via **Play Console �
 
 ### Build fails in CI but works locally
 
-Check that all 6 GitHub secrets are set. The signing config requires `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, and `KEY_PASSWORD`. Missing any of these causes a Gradle build failure.
+Check that all 8 GitHub secrets are set. The signing config requires `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, and `KEY_PASSWORD`. OAuth requires `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`. Missing any of these causes a build failure or broken functionality.
 
 ### "No existing edit" or API error on first upload
 
