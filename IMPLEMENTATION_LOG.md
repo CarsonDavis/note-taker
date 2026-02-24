@@ -734,22 +734,27 @@ Renamed "Sign Out" → "Disconnect" with honest terminology, renamed "Manage Rep
 - `./gradlew assembleDebug` → BUILD SUCCESSFUL
 - On-device testing needed: disconnect dialog (OAuth + PAT, with/without pending notes), "Manage on GitHub" button, OAuth race condition
 
-## M43: Fix OAuth Credentials Missing from CI/CD Builds (2026-02-19)
+## M43: Fix OAuth Credentials Missing from CI/CD Builds (2026-02-19, updated 2026-02-23)
 
 **What was built:**
-Bug fix for "Token exchange failed (404)" in Play Store builds. The OAuth credentials (`GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`) were not passed as env vars to the CI build step, so Gradle's `prop()` function fell back to empty strings. Local builds worked because `local.properties` has the values.
+Bug fix for empty `client_id` in OAuth authorize URL on Play Store builds. GitHub returns 404 when users tap "Sign in with GitHub" because the client ID is empty.
 
-**Root cause:** `deploy.yml` passed keystore secrets but not OAuth secrets to the "Build signed AAB" step. The `buildConfigField` entries in `app/build.gradle.kts` compiled with `""` for both client ID and secret.
+**Root cause (v0.5.1 attempt):** The M43 initial fix added `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` as env vars in `deploy.yml`, referencing `secrets.GITHUB_CLIENT_ID` and `secrets.GITHUB_CLIENT_SECRET`. However, GitHub **reserves the `GITHUB_` prefix** for its own secrets and silently prevents creating repository secrets with that prefix. The secrets were never actually created, so the env vars resolved to empty strings.
 
-**Changes:**
-1. **`.github/workflows/deploy.yml`** — Added `GITHUB_CLIENT_ID: ${{ secrets.GITHUB_CLIENT_ID }}` and `GITHUB_CLIENT_SECRET: ${{ secrets.GITHUB_CLIENT_SECRET }}` to the "Build signed AAB" step's `env` block.
-2. **`docs/DEPLOYMENT.md`** — Updated secrets tables from 6 to 8 entries, added both OAuth secrets to the bootstrap checklist and reference table, updated troubleshooting section.
+**Verified via:** `adb logcat` showed `client_id=` (empty) in the captured OAuth URL. `gh secret list` confirmed no `GITHUB_CLIENT_ID` or `GITHUB_CLIENT_SECRET` secrets exist.
 
-**Manual step required:** Add `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` as GitHub Actions secrets (repo Settings → Secrets and variables → Actions) with values from `local.properties`.
+**Fix (v2) — full rename to `OAUTH_CLIENT_ID` / `OAUTH_CLIENT_SECRET`:**
+1. **`.github/workflows/deploy.yml`** — Replaced env var approach with a new "Configure OAuth credentials" step that writes `OAUTH_CLIENT_ID` and `OAUTH_CLIENT_SECRET` to `local.properties` from the identically-named GitHub secrets. Removed the old env vars from the build step.
+2. **`app/build.gradle.kts`** — Renamed `prop("GITHUB_CLIENT_ID")` → `prop("OAUTH_CLIENT_ID")`, same for secret. BuildConfig fields renamed to `OAUTH_CLIENT_ID` / `OAUTH_CLIENT_SECRET`.
+3. **`OAuthConfig.kt`** — Updated to read `BuildConfig.OAUTH_CLIENT_ID` / `BuildConfig.OAUTH_CLIENT_SECRET`.
+4. **`local.properties`** — Renamed keys from `GITHUB_CLIENT_ID` → `OAUTH_CLIENT_ID`, same for secret.
+5. **`docs/DEPLOYMENT.md`** — Updated all secret references and troubleshooting.
+6. **GitHub Actions secrets** — Created `OAUTH_CLIENT_ID` and `OAUTH_CLIENT_SECRET` via `gh secret set`.
 
 **How verified:**
-- Workflow YAML validated (env var names match `prop()` calls in `build.gradle.kts`)
-- Full verification requires a CI build on `staging` branch and beta tester OAuth test
+- `./gradlew assembleDebug` → BUILD SUCCESSFUL
+- `gh secret list` confirms all 8 secrets present (no stale `GITHUB_CLIENT_*`)
+- Full verification requires: merge to `staging`, wait for CI build, install on device, test OAuth flow
 
 ## M42: Settings Screen Restructure — Device Connection + GitJot on GitHub (2026-02-18)
 
