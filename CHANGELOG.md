@@ -1,9 +1,14 @@
 # Changelog
 
+## v0.5.2
+
+**Bug Fix**
+- Fixed OAuth sign-in on Play Store builds — renamed secrets from `GITHUB_CLIENT_ID` to `OAUTH_CLIENT_ID` (GitHub reserves the `GITHUB_` prefix for its own use, silently blocking secret creation) and switched CI to write credentials to `local.properties` instead of env vars
+
 ## v0.5.1
 
 **Bug Fix**
-- Fixed OAuth sign-in failing on Play Store builds — CI/CD was not passing OAuth credentials to the build, so `client_id` was empty and token exchange returned 404
+- Attempted fix for OAuth sign-in on Play Store builds — added env vars to CI but the `GITHUB_`-prefixed secrets could not be created (see v0.5.2)
 
 ## v0.5.0
 

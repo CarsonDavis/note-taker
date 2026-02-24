@@ -6,8 +6,8 @@ import java.security.MessageDigest
 import java.security.SecureRandom
 
 object OAuthConfig {
-    val CLIENT_ID: String = BuildConfig.GITHUB_CLIENT_ID
-    val CLIENT_SECRET: String = BuildConfig.GITHUB_CLIENT_SECRET
+    val CLIENT_ID: String = BuildConfig.OAUTH_CLIENT_ID
+    val CLIENT_SECRET: String = BuildConfig.OAUTH_CLIENT_SECRET
 
     const val REDIRECT_URI_HTTPS = "https://madebycarson.com/gitjot-oauth/callback"
     const val REDIRECT_URI_APP = "notetaker://callback"

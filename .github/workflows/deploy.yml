@@ -27,14 +27,17 @@ jobs:
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > "${RUNNER_TEMP}/upload-keystore.jks"
 
+      - name: Configure OAuth credentials
+        run: |
+          echo "OAUTH_CLIENT_ID=${{ secrets.OAUTH_CLIENT_ID }}" >> local.properties
+          echo "OAUTH_CLIENT_SECRET=${{ secrets.OAUTH_CLIENT_SECRET }}" >> local.properties
+
       - name: Build signed AAB
         env:
           KEYSTORE_FILE: ${{ runner.temp }}/upload-keystore.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          GITHUB_CLIENT_ID: ${{ secrets.GITHUB_CLIENT_ID }}
-          GITHUB_CLIENT_SECRET: ${{ secrets.GITHUB_CLIENT_SECRET }}
         run: |
           VERSION_CODE=$(( ${{ github.run_number }} + 100 ))
           echo "VERSION_CODE=${VERSION_CODE}" >> "$GITHUB_ENV"

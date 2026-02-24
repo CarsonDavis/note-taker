@@ -116,8 +116,8 @@ Add `/.well-known/assetlinks.json` to skip the bounce page entirely:
 #### 1.1 Add OAuth constants
 
 Add to the app (e.g., `BuildConfig` fields or a constants object):
-- `GITHUB_CLIENT_ID`
-- `GITHUB_CLIENT_SECRET`
+- `OAUTH_CLIENT_ID`
+- `OAUTH_CLIENT_SECRET`
 - `GITHUB_CALLBACK_URL` (`https://madebycarson.com/gitjot-oauth/callback`)
 - `GITHUB_APP_INSTALL_URL` (`https://github.com/apps/gitjot-oauth/installations/select_target`)
 
