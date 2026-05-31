@@ -14,32 +14,25 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.carsondavis.notetaker.ui.theme.Blue40
 
+/**
+ * Top bar for the note input screen: Browse + Settings navigation icons only.
+ *
+ * Previously displayed the repo's sticky topic (`.current_topic`). That was
+ * removed in M44 — notes now carry their own context for the processing agent,
+ * so a single global topic is no longer meaningful.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TopicBar(
-    topic: String?,
-    isLoading: Boolean,
+fun NoteTopBar(
     onSettingsClick: () -> Unit,
     onBrowseClick: () -> Unit = {}
 ) {
-    val displayText = when {
-        isLoading -> "..."
-        topic.isNullOrBlank() -> "No topic set"
-        else -> topic
-    }
-    val textColor = if (topic.isNullOrBlank() && !isLoading) {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    } else {
-        MaterialTheme.colorScheme.onSurface
-    }
-
     Column {
         Spacer(
             Modifier
@@ -48,13 +41,7 @@ fun TopicBar(
                 .background(MaterialTheme.colorScheme.background)
         )
         TopAppBar(
-            title = {
-                Text(
-                    text = displayText,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = textColor
-                )
-            },
+            title = {},
             actions = {
                 IconButton(onClick = onBrowseClick) {
                     Icon(

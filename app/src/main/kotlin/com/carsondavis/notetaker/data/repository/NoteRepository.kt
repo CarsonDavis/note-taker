@@ -158,25 +158,4 @@ class NoteRepository @Inject constructor(
         }
     }
 
-    suspend fun fetchCurrentTopic(): String? {
-        return try {
-            val token = authManager.accessToken.first() ?: return null
-            val owner = authManager.repoOwner.first() ?: return null
-            val repo = authManager.repoName.first() ?: return null
-
-            val response = api.getFileContent(
-                auth = "Bearer $token",
-                owner = owner,
-                repo = repo,
-                path = ".current_topic"
-            )
-
-            response.content?.let { encoded ->
-                String(Base64.decode(encoded.replace("\n", ""), Base64.DEFAULT)).trim()
-            }
-        } catch (_: Exception) {
-            null
-        }
-    }
-
 }

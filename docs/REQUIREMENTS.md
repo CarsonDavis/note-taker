@@ -18,19 +18,18 @@ The app's only job is getting text into the `inbox/` folder of the notes repo.
 
 1. User long-presses side key (or opens app normally)
 2. Note input screen appears immediately (over lock screen if triggered from keyguard)
-3. App fetches current sticky topic from the repo and displays it at the top
-4. User types a note (or dictates via keyboard mic button)
-5. User taps submit
-6. App creates a new file in `inbox/` via the GitHub API
-7. Input field clears, brief success animation, user stays on the same screen ready for the next note
-8. If launched from lock screen, pressing Back returns to the lock screen
+3. User types a note (or dictates via keyboard mic button)
+4. User taps submit
+5. App creates a new file in `inbox/` via the GitHub API
+6. Input field clears, brief success animation, user stays on the same screen ready for the next note
+7. If launched from lock screen, pressing Back returns to the lock screen
 
 ## Screens
 
 ### 1. Note Input (Home)
 The default and only landing screen. Always opens here.
 
-- **Top bar**: current sticky topic (read-only), icon to navigate to Settings
+- **Top bar**: browse and settings icons (no title) — see FR2 for why the topic display was removed
 - **Body**: single text input field, full height available
 - **Bottom**: submit button
 - On submit: push to GitHub, clear the field, show brief success feedback (animation/snackbar), stay on this screen
@@ -53,11 +52,9 @@ Accessible from the top bar of the note input screen.
 - Submit button to send the note
 - On submit: clear field, brief success animation, stay on same screen
 
-### FR2: Sticky Topic Display ✅
-- On app open, fetch `.current_topic` from the configured repo via GitHub API
-- Display the current topic at the top of the screen (read-only)
-- If no topic is set, display "No topic set"
-- Topic changes happen through note content (e.g., "new topic, Frankenstein"), processed by the LLM — the app does not need topic-setting UI
+### FR2: Sticky Topic Display ❌ Removed (M44)
+- **Removed.** Earlier versions fetched `.current_topic` from the repo and showed it at the top of the note screen. The app has outgrown a single global "topic" — notes now cover everything in the user's life, and each note carries enough inline context for the processing agent to associate it with the right note chain. A repo-wide sticky topic is no longer meaningful, so the display, the `.current_topic` fetch, and the related state were all removed.
+- The top bar now shows only the browse and settings icons (empty title).
 
 ### FR3: Push to GitHub ✅
 - On submit, create a new file in the `inbox/` directory of the configured repo

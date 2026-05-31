@@ -67,7 +67,6 @@ The PUT to `contents/inbox/{timestamp}.md` is the only write operation. All othe
 |------|-------|--------|
 | Current note text being composed | `NoteViewModel._noteText` | `ui/viewmodels/NoteViewModel.kt` |
 | Partial speech recognition results | `SpeechRecognizerManager._partialText` | `speech/SpeechRecognizerManager.kt` |
-| Current topic string | `NoteViewModel._topic` | `ui/viewmodels/NoteViewModel.kt` |
 | File/directory listings from GitHub | `BrowseViewModel` state | `ui/viewmodels/BrowseViewModel.kt` |
 
 All cleared when the relevant ViewModel is destroyed or the app process ends.

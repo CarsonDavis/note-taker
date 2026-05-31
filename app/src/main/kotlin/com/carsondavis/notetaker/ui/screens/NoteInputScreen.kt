@@ -78,7 +78,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import com.carsondavis.notetaker.speech.ListeningState
 import com.carsondavis.notetaker.ui.components.SubmissionHistory
-import com.carsondavis.notetaker.ui.components.TopicBar
+import com.carsondavis.notetaker.ui.components.NoteTopBar
 import com.carsondavis.notetaker.ui.viewmodels.InputMode
 import com.carsondavis.notetaker.ui.viewmodels.NoteViewModel
 import kotlinx.coroutines.delay
@@ -228,9 +228,7 @@ fun NoteInputScreen(
 
     Scaffold(
         topBar = {
-            TopicBar(
-                topic = uiState.topic,
-                isLoading = uiState.isTopicLoading,
+            NoteTopBar(
                 onSettingsClick = onSettingsClick,
                 onBrowseClick = onBrowseClick
             )

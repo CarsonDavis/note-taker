@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.6.0 (in progress)
+
+**What's Changed**
+- Removed the topic bar from the top of the note screen — notes now carry their own context, so a single repo-wide topic is no longer shown. The browse and settings icons remain.
+
+**Improved**
+- Dictation drops fewer words between phrases — the voice recognizer now reuses its session instead of fully tearing down and rebuilding on every pause, which roughly cut in half the brief gap where speech wasn't being captured. (Further refinement in progress.)
+
 ## v0.5.2
 
 **Bug Fix**

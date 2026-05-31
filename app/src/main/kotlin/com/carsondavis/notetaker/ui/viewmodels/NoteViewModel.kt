@@ -26,8 +26,6 @@ enum class InputMode { VOICE, KEYBOARD }
 
 data class NoteUiState(
     val noteText: String = "",
-    val topic: String? = null,
-    val isTopicLoading: Boolean = false,
     val isSubmitting: Boolean = false,
     val submitSuccess: Boolean = false,
     val submitQueued: Boolean = false,
@@ -76,7 +74,6 @@ class NoteViewModel @Inject constructor(
         observeSubmissions()
         observePendingCount()
         observeSpeechState()
-        fetchTopic()
         checkOnboarding()
     }
 
@@ -140,14 +137,6 @@ class NoteViewModel @Inject constructor(
         }
     }
 
-    private fun fetchTopic() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isTopicLoading = true) }
-            val topic = repository.fetchCurrentTopic()
-            _uiState.update { it.copy(topic = topic, isTopicLoading = false) }
-        }
-    }
-
     fun onPermissionResult(granted: Boolean) {
         _uiState.update { it.copy(permissionGranted = granted) }
         if (granted && _uiState.value.speechAvailable) {
@@ -206,7 +195,6 @@ class NoteViewModel @Inject constructor(
                 when (submitResult) {
                     SubmitResult.SENT -> {
                         confirmedText = ""
-                        fetchTopic()
                         _uiState.update {
                             it.copy(noteText = "", isSubmitting = false, submitSuccess = true)
                         }

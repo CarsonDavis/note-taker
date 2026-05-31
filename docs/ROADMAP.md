@@ -19,9 +19,7 @@ Ability to connect more than one GitHub repository and switch between them in-ap
 ### Donate / Tip Button
 In-app option for users to support development. Could be a simple link to GitHub Sponsors, Buy Me a Coffee, or similar. No in-app purchases — just an external link.
 
-### Smarter Topic Refresh
-Currently the topic refreshes on app launch and after each note submission. This won't catch topic changes that happen between submissions (e.g., the LLM agent processes a "new topic" note while the app is sitting open). Need a better mechanism:
+## Removed
 
-- Periodic polling (e.g., every 60s while the app is in the foreground)
-- GitHub webhook via push notification (requires server infrastructure)
-- ETag/If-None-Match on the Contents API to make polling cheap
+### Sticky Topic Display (removed M44)
+The app used to fetch `.current_topic` from the repo and show it at the top of the note screen, with a planned "smarter topic refresh" follow-up. Removed in M44: notes now cover everything in the user's life and carry their own inline context for the processing agent, so a single repo-wide topic is no longer meaningful. The "smarter topic refresh" idea is dropped along with it.

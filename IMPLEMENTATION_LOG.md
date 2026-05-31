@@ -772,3 +772,82 @@ Restructured the Settings screen to separate device-level concerns from GitHub A
 - `./gradlew assembleDebug` → BUILD SUCCESSFUL
 - On-device testing needed: OAuth user (both cards visible), PAT user (only Device Connection), disconnect flow, Manage on GitHub button
 
+## M44: Remove Sticky Topic Display (2026-05-31)
+
+**What was built:**
+Removed the sticky topic feature originally added in M6. The app fetched a `.current_topic` file from the repo on launch (and after every successful submit) and displayed it as the title of the note screen's top bar. The app has outgrown a single repo-wide "topic" — it's now used for notes on everything in life, and each note is written with enough inline context for the processing agent to associate it with the right note chain. A global sticky topic is no longer meaningful.
+
+**Changes:**
+- `NoteRepository.kt` — Deleted `fetchCurrentTopic()` (the only reader of `.current_topic`).
+- `NoteViewModel.kt` — Removed `topic` and `isTopicLoading` from `NoteUiState`; deleted `fetchTopic()` and its two call sites (init + after `SubmitResult.SENT`).
+- `ui/components/TopicBar.kt` → renamed to `NoteTopBar.kt` — The component no longer renders a topic; it's now just the browse + settings icons with an empty title (chosen design). Renamed so the name stays honest.
+- `NoteInputScreen.kt` — Updated import and call site (`TopicBar` → `NoteTopBar`, dropped the topic/isLoading args).
+- Docs: `REQUIREMENTS.md` (FR2 marked removed, core flow renumbered, top-bar bullet), `WIREFRAMES.md` (top bar, removed "No Topic Set" and topic-loading states, removed "long topic names" note), `ROADMAP.md` (removed obsolete "Smarter Topic Refresh" item, added a Removed note), `playstore/data-collection.md` (dropped the topic in-memory row), `playstore/store-listing.md` (dropped the feature bullet), `INDEX.md`.
+
+**How verified:**
+- `./gradlew assembleDebug` → BUILD SUCCESSFUL
+- `grep` confirms no remaining references to `fetchTopic`/`fetchCurrentTopic`/`isTopicLoading`/`TopicBar`/`.current_topic` in code (only an explanatory comment in `NoteTopBar.kt`).
+- On-device check pending (no device connected at build time): confirm the top bar shows only the browse + settings icons and the note screen still functions.
+
+## M45: Dictation Word-Dropping — Investigation & Instrumentation (2026-05-31, in progress)
+
+**Problem (reported):**
+While dictating continuously, the app occasionally drops a couple of words mid-stream and then resumes as if nothing happened — with no visible indication that anything was missed.
+
+**Root-cause analysis (code reading, `speech/SpeechRecognizerManager.kt`):**
+Continuous listening is implemented with a **single `SpeechRecognizer` that is destroyed and recreated on every segment boundary**:
+- `onResults()` (fires when the engine's endpointer detects a pause) → finalize the segment → `restart()`.
+- `restart()` sets state `RESTARTING`, calls `recognizer.destroy()`, nulls it, then `handler.postDelayed({ createAndStart() }, 150)`.
+- `createAndStart()` builds a **brand-new** `SpeechRecognizer` and calls `startListening()`. Audio is only captured once the engine reaches `onReadyForSpeech`.
+
+Between `onEndOfSpeech` (capture stops) and the next recognizer's `onReadyForSpeech` (capture resumes) there is a **dead window** where nothing is recording: the hard-coded 150 ms delay + recognizer teardown + cold re-init of a fresh recognizer (often several hundred ms more on Google's engine). Any speech in that window is lost. Because the engine ends an utterance on a short natural pause and the user keeps talking, words spoken right after the pause vanish.
+
+Why it's invisible: during `restart()` the state is `RESTARTING`, and the UI (`NoteInputScreen.kt`) renders `RESTARTING` identically to `LISTENING` ("Listening…"), so the gap is masked.
+
+**Ranked hypotheses:**
+1. **(Primary) Destroy+recreate restart gap** — dead window between segments drops audio. Most consistent with the symptom.
+2. **Endpointer fires too eagerly** — default silence thresholds end utterances on short pauses, so the restart cycle (and its gap) happens far more often than necessary. Tunable via `EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS`.
+3. **`onEndOfSpeech`→`onResults` trailing loss** — engine may stop capturing at end-of-speech detection slightly before results return, clipping the tail even before restart.
+4. **Architectural** — Android `SpeechRecognizer` is built for single utterances, not gapless continuous dictation; any single-instance restart has *some* gap.
+
+**Instrumentation added (this milestone, no behavior change):**
+`SpeechRecognizerManager` now emits `Log.d("SpeechTiming", …)` (gated on `BuildConfig.DEBUG`) with `SystemClock.elapsedRealtime()` timestamps at: session start/stop, `startListening`, `onReadyForSpeech`, `onBeginningOfSpeech`, `onEndOfSpeech`, `onResults`, `onError`, and `restart()`. At each `onReadyForSpeech` it logs the **dead-window duration** since the last capture end (`onEndOfSpeech`/`onError`). This quantifies hypothesis 1 directly.
+
+**How to measure the baseline (pending — needs device):**
+1. `./gradlew installDebug` to the S24 Ultra.
+2. `adb logcat -s SpeechTiming` while dictating a steady known script (e.g. counting "one, two, three … thirty" without long pauses).
+3. Record the dead-window values and how often restarts occur; diff captured text vs. expected to correlate drops with restart boundaries.
+
+**Candidate fixes (NOT yet implemented — to choose after baseline, per `CLAUDE.md` "list approaches first"):**
+- F1: Reuse the recognizer instead of destroy+recreate (call `startListening` again without `destroy()`), removing re-init cost.
+- F2: Reduce/remove the 150 ms restart delay.
+- F3: Double-buffer two recognizers with overlap so there's no dead window (needs seam dedup).
+- F4: Tune endpointer silence params to reduce restart frequency.
+- F5: Move to a true continuous engine (Vosk/Whisper) — larger change.
+
+**Baseline measurement (2026-05-31, S24 Ultra, `adb logcat -s SpeechTiming`):**
+Read a 12-sentence script (each sentence prefixed with a sequential number marker) as voice notes, pausing at each period.
+- **Dead window per restart: ~215 ms steady-state** (min 197, max 238 ms over ~28 restarts in ~1m45s). One 896 ms outlier after a manual stop/start. This is time with **no audio capture** on every segment boundary.
+- **Confirmed dropped words (transcript vs. script): all at sentence starts**, i.e. spoken during the restart gap:
+  - "**One. The** harbor…" → captured "Harbor was quiet before sunrise" (lost `One. The`)
+  - "**Four. Maria** counted…" → "counted the seven boats in the bay" (lost `Four. Maria`)
+  - "**Warm** bread…" → "bread smelled of honey and salt" (lost `Warm`)
+  - "**Eight. Two children** chased…" → "chase the yellow kite" (lost `Eight. Two children`)
+  - "**Nine.** The clock tower…" → "the clock tower struck a single note" (lost `Nine.`)
+  - "**Ten. Fishermen** folded…" → "folded their Nets on the dock" (lost `Ten. Fishermen`)
+  - (~11 words total; other differences are mis-recognitions, not drops.)
+- **Ground truth:** the actual saved note (`CarsonDavis/notes` commit `aafaa8c`, `inbox/2026-05-31T131640-0500.md`) equals the concatenation of the `onResults` segments — so the loss is in the recognizer layer, not the ViewModel text assembly. Fixing the restart gap fixes the saved note.
+- **`onError code=7` (`ERROR_NO_MATCH`) clusters at the worst drops** — the restarted recognizer wakes mid-word, can't match the clipped fragment, and restarts again, compounding the gap.
+
+**Conclusion:** Hypothesis 1 (destroy+recreate dead window) confirmed as the primary cause; the eager endpointer + no-match re-restarts (hypotheses 2/3) compound it. Any fix must shrink or eliminate the ~215 ms capture gap; success = re-running this same script and seeing the sentence-start words survive.
+
+**Fix attempt F1 — reuse recognizer (2026-05-31):**
+Replaced `destroy()` + `createSpeechRecognizer()` on each restart with reuse of the existing instance (`handler.post` to leave the callback, then `startListening()` again — no fixed delay). Added a `recreateAndStart()` fallback for `ERROR_RECOGNIZER_BUSY` / `startListening` throwing.
+
+Re-ran the same script on the S24 Ultra:
+- **Dead window: ~215 ms → ~80 ms** (steady-state 54–136 ms; the 1033/3146 ms values in the log are session stop→start boundaries from submitting, not in-dictation restarts). ~63% reduction; matches the theory that the service re-bind dominated the gap.
+- **Catastrophic multi-word drops eliminated.** Sentence bodies that were lost in the baseline ("One. The", "Four. Maria"→only "Four" now lost, "Eight. Two children"→only "Eight" lost, "Ten. Fishermen", "Nine.") now survive. Saved note: `CarsonDavis/notes` commit `5544ae9`, `inbox/2026-05-31T142906-0500.md`.
+- **Residual drops remain:** a few one-syllable leading tokens (bare markers "Four/Five/Six/Eight", article "A" ×2) still fall in the ~80 ms gap, and ~10 `ERROR_NO_MATCH` restarts persist. F1 shrinks the gap but does not reach zero — only overlap (F3) fully closes it.
+
+**Status:** F1 implemented and verified as a substantial improvement (gap 2.6× smaller, whole-phrase losses gone). Decision pending: accept F1 (optionally + F4 endpointer tuning to cut restart frequency) vs. escalate to F3 double-buffer for zero-gap. Instrumentation still in place for whichever comes next.
+

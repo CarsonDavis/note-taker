@@ -9,7 +9,7 @@ The default screen. Always opens here.
 ### Normal State
 ```
 ┌──────────────────────────────┐
-│ 📖 Frankenstein          [⚙] │
+│                    [📖]  [⚙] │
 ├──────────────────────────────┤
 │                              │
 │  [                        ]  │
@@ -27,26 +27,15 @@ The default screen. Always opens here.
 └──────────────────────────────┘
 ```
 
-- **Top bar**: sticky topic (read-only) on the left, settings gear icon on the right
+- **Top bar**: empty title; browse (book) and settings (gear) icons on the right
 - **Text field**: main body of the screen
 - **Submit button**: below the text field
 - **Recent submissions**: collapsible list at the bottom
 
-### No Topic Set
-```
-┌──────────────────────────────┐
-│ No topic set             [⚙] │
-├──────────────────────────────┤
-│                              │
-│  ...                         │
-```
-
-Topic area shows "No topic set" in a muted/dimmed style.
-
 ### Success State (after submit)
 ```
 ┌──────────────────────────────┐
-│ 📖 Frankenstein          [⚙] │
+│                    [📖]  [⚙] │
 ├──────────────────────────────┤
 │                              │
 │  [                        ]  │
@@ -81,15 +70,6 @@ Text field is NOT cleared on error so the user doesn't lose their note.
 ```
 │         [ ··· Saving ]       │  ← submit button shows spinner, disabled
 ```
-
-### Loading State (fetching topic on open)
-```
-┌──────────────────────────────┐
-│ ···                      [⚙] │  ← spinner or shimmer in topic area
-├──────────────────────────────┤
-```
-
-Topic area shows a loading indicator. Text field is usable immediately — don't block input on topic fetch.
 
 ---
 
@@ -187,4 +167,3 @@ On first run (or when not authenticated), the app shows a 4-step guided setup sc
 - **Text field**: grows to fill available vertical space (via `weight(1f)`), scrolls internally when content overflows
 - **Submit button**: smaller centered button, easy to press one-handed
 - **Recent history**: collapsed by default
-- **Long topic names**: wrap to second line
