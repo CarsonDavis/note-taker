@@ -8,6 +8,9 @@ import android.util.Base64
 import android.util.Log
 import com.carsondavis.notetaker.BuildConfig
 import com.carsondavis.notetaker.speech.ListeningState
+import com.carsondavis.notetaker.speech.VoiceEngine
+import com.carsondavis.notetaker.speech.VoiceError
+import com.carsondavis.notetaker.speech.VoiceErrorKind
 import com.carsondavis.notetaker.speech.VoiceRecognizer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,8 +39,11 @@ import kotlin.concurrent.thread
 class OpenAiRecognizer(
     private val apiKey: String,
     private val onSegmentFinalized: (String) -> Unit,
-    private val onError: (String) -> Unit
+    private val onError: (VoiceError) -> Unit
 ) : VoiceRecognizer {
+
+    private fun fail(message: String, kind: VoiceErrorKind) =
+        onError(VoiceError(message, kind, VoiceEngine.CLOUD))
 
     private val _listeningState = MutableStateFlow(ListeningState.IDLE)
     override val listeningState: StateFlow<ListeningState> = _listeningState.asStateFlow()
@@ -93,7 +99,7 @@ class OpenAiRecognizer(
 
     override fun start() {
         if (apiKey.isBlank()) {
-            onError("No OpenAI API key set — add one in Settings")
+            fail("No OpenAI API key set — add one in Settings", VoiceErrorKind.INVALID_KEY)
             return
         }
         if (recording || webSocket != null) return
@@ -147,16 +153,16 @@ class OpenAiRecognizer(
 
         override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
             log("ws failure: ${t.message} (http ${response?.code})")
-            val detail = when (response?.code) {
-                401 -> "invalid API key"
-                429 -> "rate limited or out of credit"
-                else -> t.message ?: "connection failed"
+            val (detail, kind) = when (response?.code) {
+                401, 403 -> "invalid API key" to VoiceErrorKind.INVALID_KEY
+                429 -> "rate limited or out of credit" to VoiceErrorKind.OUT_OF_CREDIT
+                else -> (t.message ?: "connection failed") to VoiceErrorKind.TRANSIENT
             }
             stopAudioCapture()
             webSocket = null
             _listeningState.value = ListeningState.IDLE
             _partialText.value = ""
-            onError("Cloud transcription error: $detail")
+            fail("Cloud transcription error: $detail", kind)
         }
 
         override fun onClosed(ws: WebSocket, code: Int, reason: String) {
@@ -196,9 +202,24 @@ class OpenAiRecognizer(
                 _partialText.value = ""
             }
             "error" -> {
-                val msg = json.optJSONObject("error")?.optString("message") ?: "unknown error"
-                log("api error: $msg")
-                onError("Cloud transcription error: $msg")
+                val err = json.optJSONObject("error")
+                val msg = err?.optString("message")?.takeIf { it.isNotEmpty() } ?: "unknown error"
+                val code = err?.optString("code") ?: ""
+                log("api error: $msg (code=$code)")
+                val kind = when (code) {
+                    "insufficient_quota" -> VoiceErrorKind.OUT_OF_CREDIT
+                    "invalid_api_key" -> VoiceErrorKind.INVALID_KEY
+                    else -> VoiceErrorKind.OTHER
+                }
+                // Mid-session API error (e.g. out of credit): tear the session down so the
+                // mic stops showing "Listening…" while nothing is being transcribed — the
+                // silent-failure bug. The ViewModel decides whether to fall back.
+                stopAudioCapture()
+                try { webSocket?.close(1000, "api error") } catch (_: Exception) {}
+                webSocket = null
+                _listeningState.value = ListeningState.IDLE
+                _partialText.value = ""
+                fail("Cloud transcription error: $msg", kind)
             }
         }
     }
@@ -212,7 +233,7 @@ class OpenAiRecognizer(
             AudioFormat.ENCODING_PCM_16BIT
         )
         if (minBuf <= 0) {
-            onError("Microphone doesn't support 24 kHz capture")
+            fail("Microphone doesn't support 24 kHz capture", VoiceErrorKind.OTHER)
             return
         }
         val bufferSize = maxOf(minBuf, sampleRate) // generous (~0.5s of 16-bit mono)
@@ -225,7 +246,7 @@ class OpenAiRecognizer(
         )
         if (record.state != AudioRecord.STATE_INITIALIZED) {
             record.release()
-            onError("Microphone unavailable")
+            fail("Microphone unavailable", VoiceErrorKind.OTHER)
             return
         }
         audioRecord = record

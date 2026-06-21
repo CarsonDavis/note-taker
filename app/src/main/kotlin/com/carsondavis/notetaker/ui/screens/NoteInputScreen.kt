@@ -36,9 +36,11 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -51,9 +53,11 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -70,6 +74,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -81,8 +86,65 @@ import com.carsondavis.notetaker.ui.components.SubmissionHistory
 import com.carsondavis.notetaker.ui.components.NoteTopBar
 import com.carsondavis.notetaker.ui.viewmodels.InputMode
 import com.carsondavis.notetaker.ui.viewmodels.NoteViewModel
+import com.carsondavis.notetaker.ui.viewmodels.VoiceEngineNotice
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+/**
+ * Persistent banner shown when cloud transcription failed and the app auto-fell back to
+ * on-device. Replaces the easy-to-miss transient snackbar for engine failures — the user
+ * keeps dictating on-device and decides whether to make it permanent or retry the cloud.
+ */
+@Composable
+private fun VoiceEngineBanner(
+    notice: VoiceEngineNotice,
+    onKeepOnDevice: () -> Unit,
+    onRetryCloud: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.errorContainer,
+        contentColor = MaterialTheme.colorScheme.onErrorContainer
+    ) {
+        Column(modifier = Modifier.padding(start = 12.dp, top = 8.dp, end = 8.dp, bottom = 8.dp)) {
+            Row(verticalAlignment = Alignment.Top) {
+                Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .padding(top = 2.dp)
+                        .size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = notice.reason,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(top = 2.dp)
+                )
+                IconButton(onClick = onDismiss, modifier = Modifier.size(24.dp)) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Dismiss",
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+            Row(modifier = Modifier.padding(top = 4.dp)) {
+                if (notice.canRetryCloud) {
+                    TextButton(onClick = onRetryCloud) { Text("Retry high-accuracy") }
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                TextButton(onClick = onKeepOnDevice) { Text("Keep on-device") }
+            }
+        }
+    }
+}
 
 private fun Modifier.verticalScrollbar(
     scrollState: ScrollState,
@@ -115,6 +177,14 @@ fun NoteInputScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
+
+    // Keep the screen awake while the capture screen is open so it never sleeps
+    // mid-note (e.g. during a pause while dictating). Cleared when leaving the screen.
+    val view = LocalView.current
+    DisposableEffect(Unit) {
+        view.keepScreenOn = true
+        onDispose { view.keepScreenOn = false }
+    }
 
     // TextFieldState for the new BasicTextField API — gives us access to ScrollState
     val textFieldState = rememberTextFieldState()
@@ -241,6 +311,15 @@ fun NoteInputScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
+            uiState.voiceEngineNotice?.let { notice ->
+                VoiceEngineBanner(
+                    notice = notice,
+                    onKeepOnDevice = { viewModel.keepOnDevice() },
+                    onRetryCloud = { viewModel.retryCloud() },
+                    onDismiss = { viewModel.dismissVoiceNotice() }
+                )
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
 
             // Text field area — grows to fill available space

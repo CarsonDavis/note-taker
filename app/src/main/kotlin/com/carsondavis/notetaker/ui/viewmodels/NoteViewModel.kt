@@ -8,12 +8,16 @@ import com.carsondavis.notetaker.data.repository.NoteRepository
 import com.carsondavis.notetaker.data.repository.SubmitResult
 import com.carsondavis.notetaker.speech.ListeningState
 import com.carsondavis.notetaker.speech.SpeechRecognizerManager
+import com.carsondavis.notetaker.speech.VoiceEngine
+import com.carsondavis.notetaker.speech.VoiceError
+import com.carsondavis.notetaker.speech.VoiceErrorKind
 import com.carsondavis.notetaker.speech.VoiceRecognizer
 import com.carsondavis.notetaker.speech.cloud.OpenAiRecognizer
 import com.carsondavis.notetaker.ui.components.SubmissionItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,6 +33,16 @@ import javax.inject.Inject
 
 enum class InputMode { VOICE, KEYBOARD }
 
+/**
+ * Shown as a persistent banner when cloud transcription fails and the app has
+ * automatically fallen back to on-device for the rest of this session. The user's
+ * saved OpenAI key is untouched — [canRetryCloud] reflects whether a key is still set.
+ */
+data class VoiceEngineNotice(
+    val reason: String,
+    val canRetryCloud: Boolean
+)
+
 data class NoteUiState(
     val noteText: String = "",
     val isSubmitting: Boolean = false,
@@ -40,7 +54,8 @@ data class NoteUiState(
     val inputMode: InputMode = InputMode.VOICE,
     val listeningState: ListeningState = ListeningState.IDLE,
     val speechAvailable: Boolean = false,
-    val permissionGranted: Boolean = false
+    val permissionGranted: Boolean = false,
+    val voiceEngineNotice: VoiceEngineNotice? = null
 )
 
 @HiltViewModel
@@ -69,14 +84,71 @@ class NoteViewModel @Inject constructor(
     private var currentKey: String? = null
     private var recognizerStateJob: Job? = null
 
+    // Session-only engine override after a cloud failure: forces on-device without
+    // changing the saved voiceMode preference or the stored key. Cleared when the
+    // user explicitly changes the mode in Settings, retries cloud, or keeps on-device.
+    private var engineOverride: String? = null
+    private var cloudTransientRetries = 0
+
     private fun onSegmentFinalized(segment: String) {
         confirmedText = if (confirmedText.isEmpty()) segment else "$confirmedText $segment"
         _uiState.update { it.copy(noteText = confirmedText) }
     }
 
-    private fun onVoiceError(message: String) {
-        _uiState.update { it.copy(listeningState = ListeningState.IDLE, submitError = message) }
+    private fun onVoiceError(error: VoiceError) {
+        // Cloud errors arrive on the OkHttp WebSocket thread; the fallback path creates and
+        // starts a SpeechRecognizer, which must run on the main thread. viewModelScope is
+        // Main.immediate, so everything below is marshaled there.
+        viewModelScope.launch {
+            _uiState.update { it.copy(listeningState = ListeningState.IDLE) }
+
+            val isCloud = error.engine == VoiceEngine.CLOUD
+            // A transient cloud blip (dropped connection): try to reconnect a couple of times
+            // silently before bothering the user. The counter resets once we reach LISTENING.
+            if (isCloud && error.kind == VoiceErrorKind.TRANSIENT && cloudTransientRetries < MAX_CLOUD_RETRIES) {
+                cloudTransientRetries++
+                val engine = voiceRecognizer
+                delay(800)
+                if (voiceRecognizer === engine && voiceIntended()) engine.start()
+                return@launch
+            }
+
+            if (isCloud) {
+                // Fatal cloud failure (out of credit, bad key, or exhausted retries) — keep the
+                // user dictating by falling back to on-device for the rest of this session.
+                fallbackToOnDevice(error)
+            } else {
+                // On-device errors keep the old transient-snackbar behavior.
+                _uiState.update { it.copy(submitError = error.message) }
+            }
+        }
     }
+
+    /**
+     * Cloud transcription failed — switch the live engine to on-device for this session
+     * and raise a persistent banner. Does NOT call [AuthManager.setVoiceMode] or touch the
+     * stored key, so the user's preference and BYOK key survive untouched.
+     */
+    private fun fallbackToOnDevice(error: VoiceError) {
+        cloudTransientRetries = 0
+        engineOverride = AuthManager.VOICE_MODE_ON_DEVICE
+        switchEngine(AuthManager.VOICE_MODE_ON_DEVICE, currentKey, startIfIntended = voiceIntended())
+        val reason = when (error.kind) {
+            VoiceErrorKind.OUT_OF_CREDIT ->
+                "High-accuracy voice stopped — your OpenAI account is out of credit. Switched to on-device."
+            VoiceErrorKind.INVALID_KEY ->
+                "High-accuracy voice stopped — your OpenAI API key was rejected. Switched to on-device."
+            else ->
+                "High-accuracy voice stopped — switched to on-device."
+        }
+        _uiState.update {
+            it.copy(voiceEngineNotice = VoiceEngineNotice(reason, canRetryCloud = !currentKey.isNullOrBlank()))
+        }
+    }
+
+    /** Whether the user currently wants the mic running — the basis for auto-start decisions. */
+    private fun voiceIntended(): Boolean =
+        _uiState.value.inputMode == InputMode.VOICE && _uiState.value.permissionGranted
 
     init {
         _uiState.update { it.copy(speechAvailable = voiceRecognizer.isAvailable) }
@@ -92,18 +164,30 @@ class NoteViewModel @Inject constructor(
             combine(authManager.voiceMode, authManager.openAiKey) { mode, key -> mode to key }
                 .distinctUntilChanged()
                 .collect { (mode, key) ->
-                    if (mode != currentMode || key != currentKey) rebuildRecognizer(mode, key)
+                    // An explicit mode change in Settings is the user's choice — it wins
+                    // over any session fallback override.
+                    if (mode != currentMode) engineOverride = null
+                    val changed = mode != currentMode || key != currentKey
+                    currentMode = mode
+                    currentKey = key
+                    if (changed) {
+                        switchEngine(engineOverride ?: mode, key, startIfIntended = voiceIntended())
+                    }
                 }
         }
     }
 
-    private fun rebuildRecognizer(mode: String, key: String?) {
-        val wasActive = _uiState.value.inputMode == InputMode.VOICE &&
-            voiceRecognizer.listeningState.value != ListeningState.IDLE
+    /**
+     * Swap the live voice engine. Whether to (re)start it is decided by the user's intent
+     * ([voiceIntended]) — NOT the outgoing engine's momentary [ListeningState]. The old code
+     * read `listeningState != IDLE`, but on cold start that's still IDLE during the async
+     * on-device warm-up, so a config-driven swap could leave the new engine never started →
+     * "the mic isn't active when I open the app."
+     */
+    private fun switchEngine(mode: String, key: String?, startIfIntended: Boolean) {
         recognizerStateJob?.cancel()
         voiceRecognizer.destroy()
-        currentMode = mode
-        currentKey = key
+        cloudTransientRetries = 0
         voiceRecognizer = if (mode == AuthManager.VOICE_MODE_CLOUD && !key.isNullOrBlank()) {
             OpenAiRecognizer(key, ::onSegmentFinalized, ::onVoiceError)
         } else {
@@ -111,9 +195,32 @@ class NoteViewModel @Inject constructor(
         }
         _uiState.update { it.copy(speechAvailable = voiceRecognizer.isAvailable) }
         observeRecognizerState()
-        if (wasActive && _uiState.value.permissionGranted && voiceRecognizer.isAvailable) {
+        if (startIfIntended && _uiState.value.permissionGranted && voiceRecognizer.isAvailable) {
+            _uiState.update { it.copy(inputMode = InputMode.VOICE) }
             voiceRecognizer.start()
         }
+    }
+
+    /** User accepted the on-device fallback — persist it as the preference and clear the banner. */
+    fun keepOnDevice() {
+        engineOverride = null
+        _uiState.update { it.copy(voiceEngineNotice = null) }
+        viewModelScope.launch { authManager.setVoiceMode(AuthManager.VOICE_MODE_ON_DEVICE) }
+    }
+
+    /** User wants to retry cloud (e.g. after topping up). Uses the still-saved key. */
+    fun retryCloud() {
+        engineOverride = null
+        cloudTransientRetries = 0
+        _uiState.update { it.copy(voiceEngineNotice = null) }
+        if (!currentKey.isNullOrBlank()) {
+            switchEngine(AuthManager.VOICE_MODE_CLOUD, currentKey, startIfIntended = voiceIntended())
+        }
+    }
+
+    /** Dismiss the banner but stay on on-device for the rest of this session. */
+    fun dismissVoiceNotice() {
+        _uiState.update { it.copy(voiceEngineNotice = null) }
     }
 
     private fun checkOnboarding() {
@@ -163,6 +270,8 @@ class NoteViewModel @Inject constructor(
         recognizerStateJob = viewModelScope.launch {
             launch {
                 recognizer.listeningState.collect { state ->
+                    // A healthy session clears the transient-retry budget.
+                    if (state == ListeningState.LISTENING) cloudTransientRetries = 0
                     _uiState.update { it.copy(listeningState = state) }
                 }
             }
@@ -270,5 +379,10 @@ class NoteViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         voiceRecognizer.destroy()
+    }
+
+    private companion object {
+        /** Silent cloud reconnect attempts before falling back to on-device. */
+        const val MAX_CLOUD_RETRIES = 2
     }
 }

@@ -874,3 +874,25 @@ Added `EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS=2000`, `..._POSSIBLY_CO
 2. **Silent cloud failure (out-of-credit, etc.).** API `error` events (`handleEvent`, e.g. insufficient_quota) call `onError` but do NOT set `listeningState = IDLE`, so the mic can read "Listening…" while nothing transcribes; and errors surface only as a transient snackbar with no fallback. Needs a prominent, persistent warning + one-tap switch to on-device (keeping the saved key). Design pending.
 3. **Play Store privacy/data-safety docs** still say audio never leaves the device — must be revised to disclose OpenAI cloud streaming before any release with cloud mode enabled. Excluded from this commit deliberately.
 
+---
+
+## M47 — Cloud-failure fallback, mic-race fix, keep-screen-on
+
+Resolves open issues #1 and #2 from M46; adds the GitJot punch-list "block screen sleep" item.
+
+**Structured voice errors.** Replaced the engines' `onError: (String) -> Unit` with a `VoiceError(message, kind, engine)` (`VoiceErrorKind`: `TRANSIENT` / `OUT_OF_CREDIT` / `INVALID_KEY` / `OTHER`; `VoiceEngine`: `ON_DEVICE` / `CLOUD`). `OpenAiRecognizer` classifies the WebSocket HTTP code (401/403→invalid key, 429→out of credit, else transient) and the API `error` event's `code` (`insufficient_quota`, `invalid_api_key`).
+
+**Open issue #2 fixed (silent failure).** The API `error` event now tears the session down — stops capture, closes the socket, sets `IDLE` — instead of leaving the mic showing "Listening…" while nothing transcribes. On a fatal cloud error `NoteViewModel` raises a persistent banner *and* swaps the live engine to on-device for the rest of the session (`engineOverride`), without calling `setVoiceMode` or touching the stored key. Banner actions: **Keep on-device** (persists the preference), **Retry high-accuracy** (rebuilds cloud with the still-saved key), dismiss. `TRANSIENT` errors get up to `MAX_CLOUD_RETRIES` (2) silent reconnects, the counter resetting once a session reaches `LISTENING`. Error callbacks are marshaled onto `viewModelScope` (Main) because cloud errors arrive on the OkHttp WebSocket thread and the fallback creates a `SpeechRecognizer`.
+
+**Open issue #1 fixed (mic-race).** `rebuildRecognizer` → `switchEngine`, which now starts the new engine based on user intent (`voiceIntended()` = `inputMode == VOICE && permissionGranted`) rather than the outgoing engine's momentary `listeningState`.
+
+**Keep-screen-on (punch-list).** `NoteInputScreen` sets `view.keepScreenOn = true` via a `DisposableEffect` while the capture screen is shown (scoped to the whole screen, not just `LISTENING`, so it won't sleep during a think-pause). Cleared on dispose.
+
+**Verification (on-device, S24 Ultra, debug build).**
+- Keep-screen-on: `FLAG_KEEP_SCREEN_ON` (0x80) confirmed set on the GitJot window via `dumpsys window` (and absent on the adjacent Settings window).
+- No dead-mic-on-open: cold start launched straight into an active on-device mic.
+- Fallback: forced an invalid key via the debug `KeyInjectorReceiver` → logs show the `error` event classified `invalid_api_key`, the cloud session torn down, the on-device engine restarting (`SpeechTiming onReadyForSpeech`), and the red banner shown. **Keep on-device** dismissed the banner and stayed on-device (no cloud retry in logs).
+- NOT individually exercised: the **Retry** click, the silent `TRANSIENT` reconnect path, and a real `OUT_OF_CREDIT` (429/`insufficient_quota`) — same code paths, different classification branch. The mic-race fix is verified-by-construction (on-device cold start works) but the intermittent cloud-mode race wasn't caught red-handed.
+
+**Still open:** M46 issue #3 — Play Store privacy/data-safety docs must disclose cloud audio before a release with cloud mode enabled.
+

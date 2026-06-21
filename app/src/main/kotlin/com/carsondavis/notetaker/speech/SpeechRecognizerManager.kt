@@ -28,7 +28,7 @@ private const val TAG = "SpeechTiming"
 class SpeechRecognizerManager(
     private val context: Context,
     private val onSegmentFinalized: (String) -> Unit,
-    private val onError: (String) -> Unit
+    private val onError: (VoiceError) -> Unit
 ) : VoiceRecognizer {
     private var recognizer: SpeechRecognizer? = null
     private val handler = Handler(Looper.getMainLooper())
@@ -114,7 +114,7 @@ class SpeechRecognizerManager(
                         SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Missing audio permission"
                         else -> "Speech recognition error ($error)"
                     }
-                    onError(message)
+                    onError(VoiceError(message, VoiceErrorKind.OTHER, VoiceEngine.ON_DEVICE))
                 }
             }
         }
@@ -146,7 +146,7 @@ class SpeechRecognizerManager(
 
     override fun start() {
         if (!isAvailable) {
-            onError("Speech recognition not available")
+            onError(VoiceError("Speech recognition not available", VoiceErrorKind.OTHER, VoiceEngine.ON_DEVICE))
             return
         }
         logTiming("session start")

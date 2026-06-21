@@ -4,6 +4,7 @@
 
 **What's New**
 - Optional high-accuracy voice input. Settings now has a **Voice Input** section where you can switch from on-device dictation to cloud transcription powered by OpenAI. It's bring-your-own-key: paste your own OpenAI API key (stored encrypted on your device, never sent anywhere but OpenAI). In this mode your audio is streamed to OpenAI while you dictate; on-device stays the default and the disclosure is shown right in Settings.
+- Graceful fallback if cloud voice fails. If high-accuracy transcription stops mid-dictation — your OpenAI credit runs out, the key is rejected, the connection drops — GitJot now switches to on-device voice automatically so you keep dictating, and shows a banner explaining what happened with one-tap **Retry high-accuracy** and **Keep on-device**. Your saved key is never touched.
 
 **What's Changed**
 - Removed the topic bar from the top of the note screen — notes now carry their own context, so a single repo-wide topic is no longer shown. The browse and settings icons remain.
@@ -11,6 +12,10 @@
 **Improved**
 - Dictation drops fewer words between phrases — the voice recognizer now reuses its session instead of fully tearing down and rebuilding on every pause, which roughly cut in half the brief gap where speech wasn't being captured. (Further refinement in progress.)
 - Cloud transcription is now locked to English, so it no longer occasionally transcribes in another language.
+- The screen no longer sleeps while you're taking a note.
+
+**Bug Fix**
+- Fixed the mic occasionally being inactive right after opening the app — a startup race when cloud voice was the selected engine.
 
 ## v0.5.2
 

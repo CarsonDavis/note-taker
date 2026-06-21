@@ -26,3 +26,19 @@ interface VoiceRecognizer {
     fun stop()
     fun destroy()
 }
+
+/** Which engine raised an error — drives whether a cloud→on-device fallback is offered. */
+enum class VoiceEngine { ON_DEVICE, CLOUD }
+
+/**
+ * Why a voice engine failed. [TRANSIENT] is worth a silent retry; the rest are fatal
+ * and (for [VoiceEngine.CLOUD]) trigger the automatic fallback to on-device.
+ */
+enum class VoiceErrorKind { TRANSIENT, OUT_OF_CREDIT, INVALID_KEY, OTHER }
+
+/** A structured voice-engine failure, replacing the old plain-string error callback. */
+data class VoiceError(
+    val message: String,
+    val kind: VoiceErrorKind,
+    val engine: VoiceEngine
+)
