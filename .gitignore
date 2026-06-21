@@ -10,3 +10,5 @@
 /app/build
 *.jks
 *.keystore
+# Local secrets — holds OPENAI_API_KEY for adb key injection. Never commit.
+/.env

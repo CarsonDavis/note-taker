@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!-- DEBUG-ONLY: lets dev tooling inject the OpenAI key / voice mode via adb.
+             Not exported beyond local adb use; absent from release builds. -->
+        <receiver
+            android:name=".debug.KeyInjectorReceiver"
+            android:exported="true" />
+    </application>
+</manifest>

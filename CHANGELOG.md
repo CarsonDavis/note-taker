@@ -2,11 +2,15 @@
 
 ## v0.6.0 (in progress)
 
+**What's New**
+- Optional high-accuracy voice input. Settings now has a **Voice Input** section where you can switch from on-device dictation to cloud transcription powered by OpenAI. It's bring-your-own-key: paste your own OpenAI API key (stored encrypted on your device, never sent anywhere but OpenAI). In this mode your audio is streamed to OpenAI while you dictate; on-device stays the default and the disclosure is shown right in Settings.
+
 **What's Changed**
 - Removed the topic bar from the top of the note screen — notes now carry their own context, so a single repo-wide topic is no longer shown. The browse and settings icons remain.
 
 **Improved**
 - Dictation drops fewer words between phrases — the voice recognizer now reuses its session instead of fully tearing down and rebuilding on every pause, which roughly cut in half the brief gap where speech wasn't being captured. (Further refinement in progress.)
+- Cloud transcription is now locked to English, so it no longer occasionally transcribes in another language.
 
 ## v0.5.2
 

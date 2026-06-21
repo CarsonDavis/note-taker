@@ -8,12 +8,17 @@ import com.carsondavis.notetaker.data.repository.NoteRepository
 import com.carsondavis.notetaker.data.repository.SubmitResult
 import com.carsondavis.notetaker.speech.ListeningState
 import com.carsondavis.notetaker.speech.SpeechRecognizerManager
+import com.carsondavis.notetaker.speech.VoiceRecognizer
+import com.carsondavis.notetaker.speech.cloud.OpenAiRecognizer
 import com.carsondavis.notetaker.ui.components.SubmissionItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -55,26 +60,60 @@ class NoteViewModel @Inject constructor(
     // Accumulates finalized speech segments
     private var confirmedText: String = ""
 
-    private val speechManager = SpeechRecognizerManager(
-        context = context,
-        onSegmentFinalized = { segment ->
-            confirmedText = if (confirmedText.isEmpty()) segment else "$confirmedText $segment"
-            _uiState.update { it.copy(noteText = confirmedText) }
-        },
-        onError = { message ->
-            _uiState.update { it.copy(
-                listeningState = ListeningState.IDLE,
-                submitError = message
-            ) }
-        }
-    )
+    // The active voice engine — swapped between on-device and cloud per the user's
+    // "Voice Input" setting (M46). Initialized to on-device so it's ready before the
+    // settings flow emits; observeVoiceConfig() rebuilds it if the setting differs.
+    private var voiceRecognizer: VoiceRecognizer =
+        SpeechRecognizerManager(context, ::onSegmentFinalized, ::onVoiceError)
+    private var currentMode: String = AuthManager.VOICE_MODE_ON_DEVICE
+    private var currentKey: String? = null
+    private var recognizerStateJob: Job? = null
+
+    private fun onSegmentFinalized(segment: String) {
+        confirmedText = if (confirmedText.isEmpty()) segment else "$confirmedText $segment"
+        _uiState.update { it.copy(noteText = confirmedText) }
+    }
+
+    private fun onVoiceError(message: String) {
+        _uiState.update { it.copy(listeningState = ListeningState.IDLE, submitError = message) }
+    }
 
     init {
-        _uiState.update { it.copy(speechAvailable = speechManager.isAvailable) }
+        _uiState.update { it.copy(speechAvailable = voiceRecognizer.isAvailable) }
         observeSubmissions()
         observePendingCount()
-        observeSpeechState()
+        observeRecognizerState()
+        observeVoiceConfig()
         checkOnboarding()
+    }
+
+    private fun observeVoiceConfig() {
+        viewModelScope.launch {
+            combine(authManager.voiceMode, authManager.openAiKey) { mode, key -> mode to key }
+                .distinctUntilChanged()
+                .collect { (mode, key) ->
+                    if (mode != currentMode || key != currentKey) rebuildRecognizer(mode, key)
+                }
+        }
+    }
+
+    private fun rebuildRecognizer(mode: String, key: String?) {
+        val wasActive = _uiState.value.inputMode == InputMode.VOICE &&
+            voiceRecognizer.listeningState.value != ListeningState.IDLE
+        recognizerStateJob?.cancel()
+        voiceRecognizer.destroy()
+        currentMode = mode
+        currentKey = key
+        voiceRecognizer = if (mode == AuthManager.VOICE_MODE_CLOUD && !key.isNullOrBlank()) {
+            OpenAiRecognizer(key, ::onSegmentFinalized, ::onVoiceError)
+        } else {
+            SpeechRecognizerManager(context, ::onSegmentFinalized, ::onVoiceError)
+        }
+        _uiState.update { it.copy(speechAvailable = voiceRecognizer.isAvailable) }
+        observeRecognizerState()
+        if (wasActive && _uiState.value.permissionGranted && voiceRecognizer.isAvailable) {
+            voiceRecognizer.start()
+        }
     }
 
     private fun checkOnboarding() {
@@ -119,19 +158,22 @@ class NoteViewModel @Inject constructor(
         }
     }
 
-    private fun observeSpeechState() {
-        viewModelScope.launch {
-            speechManager.listeningState.collect { state ->
-                _uiState.update { it.copy(listeningState = state) }
+    private fun observeRecognizerState() {
+        val recognizer = voiceRecognizer
+        recognizerStateJob = viewModelScope.launch {
+            launch {
+                recognizer.listeningState.collect { state ->
+                    _uiState.update { it.copy(listeningState = state) }
+                }
             }
-        }
-        viewModelScope.launch {
-            speechManager.partialText.collect { partial ->
-                if (_uiState.value.inputMode == InputMode.VOICE) {
-                    val display = if (confirmedText.isEmpty()) partial
-                        else if (partial.isEmpty()) confirmedText
-                        else "$confirmedText $partial"
-                    _uiState.update { it.copy(noteText = display) }
+            launch {
+                recognizer.partialText.collect { partial ->
+                    if (_uiState.value.inputMode == InputMode.VOICE) {
+                        val display = if (confirmedText.isEmpty()) partial
+                            else if (partial.isEmpty()) confirmedText
+                            else "$confirmedText $partial"
+                        _uiState.update { it.copy(noteText = display) }
+                    }
                 }
             }
         }
@@ -151,18 +193,18 @@ class NoteViewModel @Inject constructor(
         // Sync confirmedText from whatever is currently in noteText
         confirmedText = _uiState.value.noteText.trim()
         _uiState.update { it.copy(inputMode = InputMode.VOICE) }
-        speechManager.start()
+        voiceRecognizer.start()
     }
 
     fun switchToKeyboard() {
-        speechManager.stop()
+        voiceRecognizer.stop()
         // Keep current noteText as-is for keyboard editing
         confirmedText = _uiState.value.noteText.trim()
         _uiState.update { it.copy(inputMode = InputMode.KEYBOARD) }
     }
 
     fun stopVoiceInput() {
-        speechManager.stop()
+        voiceRecognizer.stop()
     }
 
     fun clearSubmitSuccess() {
@@ -185,7 +227,7 @@ class NoteViewModel @Inject constructor(
         if (text.isEmpty() || _uiState.value.isSubmitting) return
 
         val wasVoice = _uiState.value.inputMode == InputMode.VOICE
-        speechManager.stop()
+        voiceRecognizer.stop()
 
         viewModelScope.launch {
             _uiState.update { it.copy(isSubmitting = true, submitError = null) }
@@ -219,7 +261,7 @@ class NoteViewModel @Inject constructor(
                 // Restart voice if we were in voice mode
                 if (wasVoice && _uiState.value.permissionGranted && _uiState.value.speechAvailable) {
                     _uiState.update { it.copy(inputMode = InputMode.VOICE) }
-                    speechManager.start()
+                    voiceRecognizer.start()
                 }
             }
         }
@@ -227,6 +269,6 @@ class NoteViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
-        speechManager.destroy()
+        voiceRecognizer.destroy()
     }
 }

@@ -29,7 +29,9 @@ data class SettingsUiState(
     val authType: String = "", // "pat", "oauth", or ""
     val isSigningOut: Boolean = false,
     val pendingCount: Int = 0,
-    val installationId: String = ""
+    val installationId: String = "",
+    val voiceMode: String = AuthManager.VOICE_MODE_ON_DEVICE,
+    val hasOpenAiKey: Boolean = false
 )
 
 @HiltViewModel
@@ -49,7 +51,26 @@ class SettingsViewModel @Inject constructor(
     init {
         observeAuth()
         observePendingCount()
+        observeVoiceSettings()
         checkAssistantRole()
+    }
+
+    private fun observeVoiceSettings() {
+        viewModelScope.launch {
+            combine(authManager.voiceMode, authManager.openAiKey) { mode, key ->
+                mode to !key.isNullOrBlank()
+            }.collect { (mode, hasKey) ->
+                _uiState.update { it.copy(voiceMode = mode, hasOpenAiKey = hasKey) }
+            }
+        }
+    }
+
+    fun setVoiceMode(mode: String) {
+        viewModelScope.launch { authManager.setVoiceMode(mode) }
+    }
+
+    fun setOpenAiKey(key: String) {
+        viewModelScope.launch { authManager.setOpenAiKey(key) }
     }
 
     private fun observeAuth() {

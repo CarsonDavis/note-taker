@@ -30,10 +30,18 @@ class AuthManager @Inject constructor(
         val AUTH_TYPE = stringPreferencesKey("auth_type") // "pat" or "oauth"
         val INSTALLATION_ID = stringPreferencesKey("installation_id")
         val TOKEN_UPDATED_AT = longPreferencesKey("token_updated_at")
+        val VOICE_MODE = stringPreferencesKey("voice_mode") // "on_device" or "cloud"
+        val OPENAI_KEY_UPDATED_AT = longPreferencesKey("openai_key_updated_at")
     }
 
     private object EncryptedKeys {
         const val ACCESS_TOKEN = "access_token"
+        const val OPENAI_API_KEY = "openai_api_key"
+    }
+
+    companion object {
+        const val VOICE_MODE_ON_DEVICE = "on_device"
+        const val VOICE_MODE_CLOUD = "cloud"
     }
 
     /**
@@ -67,6 +75,18 @@ class AuthManager @Inject constructor(
     val authType: Flow<String?> = context.dataStore.data.map { it[Keys.AUTH_TYPE] }
 
     val installationId: Flow<String?> = context.dataStore.data.map { it[Keys.INSTALLATION_ID] }
+
+    /** Which voice engine to use: [VOICE_MODE_ON_DEVICE] (default) or [VOICE_MODE_CLOUD]. */
+    val voiceMode: Flow<String> = context.dataStore.data.map {
+        it[Keys.VOICE_MODE] ?: VOICE_MODE_ON_DEVICE
+    }
+
+    /** User's own OpenAI API key for cloud transcription (BYOK), encrypted at rest. */
+    val openAiKey: Flow<String?> = context.dataStore.data.map {
+        @Suppress("UNUSED_VARIABLE")
+        val trigger = it[Keys.OPENAI_KEY_UPDATED_AT]
+        encryptedPrefs.getString(EncryptedKeys.OPENAI_API_KEY, null)
+    }
 
     val isAuthenticated: Flow<Boolean> = context.dataStore.data.map {
         encryptedPrefs.getString(EncryptedKeys.ACCESS_TOKEN, null) != null
@@ -117,16 +137,39 @@ class AuthManager @Inject constructor(
         }
     }
 
+    suspend fun setVoiceMode(mode: String) {
+        context.dataStore.edit { it[Keys.VOICE_MODE] = mode }
+    }
+
+    suspend fun setOpenAiKey(key: String?) {
+        if (key.isNullOrBlank()) {
+            encryptedPrefs.edit().remove(EncryptedKeys.OPENAI_API_KEY).apply()
+        } else {
+            encryptedPrefs.edit().putString(EncryptedKeys.OPENAI_API_KEY, key.trim()).apply()
+        }
+        // Bump trigger so the openAiKey flow re-emits (encrypted prefs aren't observable).
+        context.dataStore.edit { it[Keys.OPENAI_KEY_UPDATED_AT] = System.currentTimeMillis() }
+    }
+
     /**
      * Sign out: revoke token and clear storage, but preserve installation_id
      * so returning users get the authorize URL instead of the install URL.
      */
     suspend fun signOut() {
-        val savedInstallationId = context.dataStore.data.first()[Keys.INSTALLATION_ID]
+        val prefs = context.dataStore.data.first()
+        val savedInstallationId = prefs[Keys.INSTALLATION_ID]
+        // Voice settings are device preferences / the user's own key, unrelated to
+        // GitHub auth — preserve them across a disconnect (cleared only by clearAllData).
+        val savedVoiceMode = prefs[Keys.VOICE_MODE]
+        val savedOpenAiKey = encryptedPrefs.getString(EncryptedKeys.OPENAI_API_KEY, null)
         encryptedPrefs.edit().clear().apply()
         context.dataStore.edit { it.clear() }
-        if (savedInstallationId != null) {
-            context.dataStore.edit { it[Keys.INSTALLATION_ID] = savedInstallationId }
+        if (savedOpenAiKey != null) {
+            encryptedPrefs.edit().putString(EncryptedKeys.OPENAI_API_KEY, savedOpenAiKey).apply()
+        }
+        context.dataStore.edit {
+            if (savedInstallationId != null) it[Keys.INSTALLATION_ID] = savedInstallationId
+            if (savedVoiceMode != null) it[Keys.VOICE_MODE] = savedVoiceMode
         }
     }
 

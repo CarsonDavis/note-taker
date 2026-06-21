@@ -34,7 +34,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -50,6 +52,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -67,6 +71,8 @@ fun SettingsScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showSignOutDialog by remember { mutableStateOf(false) }
+    var openAiKeyInput by remember { mutableStateOf("") }
+    var keyVisible by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val lifecycleState by lifecycleOwner.lifecycle.currentStateFlow.collectAsState()
@@ -233,6 +239,113 @@ fun SettingsScreen(
                 }
                 Spacer(modifier = Modifier.height(12.dp))
             }
+
+            // Voice Input section
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Voice Input",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = uiState.voiceMode == "on_device",
+                            onClick = { viewModel.setVoiceMode("on_device") },
+                            label = { Text("On-device") }
+                        )
+                        FilterChip(
+                            selected = uiState.voiceMode == "cloud",
+                            onClick = { viewModel.setVoiceMode("cloud") },
+                            label = { Text("High accuracy") }
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = if (uiState.voiceMode == "cloud") {
+                            "Streams audio to OpenAI for high-accuracy, gapless transcription. Requires your own OpenAI API key (below); your audio is sent to OpenAI while you dictate."
+                        } else {
+                            "Uses Android's built-in speech recognition. Free and works offline, but may drop an occasional word between phrases."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    if (uiState.voiceMode == "cloud") {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = openAiKeyInput,
+                            onValueChange = { openAiKeyInput = it },
+                            label = { Text(if (uiState.hasOpenAiKey) "Replace API key" else "OpenAI API key") },
+                            placeholder = { Text("sk-...") },
+                            singleLine = true,
+                            visualTransformation = if (keyVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                            trailingIcon = {
+                                TextButton(onClick = { keyVisible = !keyVisible }) {
+                                    Text(if (keyVisible) "Hide" else "Show")
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        if (uiState.hasOpenAiKey) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    "A key is saved on this device",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(
+                                onClick = {
+                                    viewModel.setOpenAiKey(openAiKeyInput)
+                                    openAiKeyInput = ""
+                                    keyVisible = false
+                                },
+                                enabled = openAiKeyInput.isNotBlank()
+                            ) {
+                                Text("Save key")
+                            }
+                            if (uiState.hasOpenAiKey) {
+                                OutlinedButton(
+                                    onClick = {
+                                        viewModel.setOpenAiKey("")
+                                        openAiKeyInput = ""
+                                    }
+                                ) {
+                                    Text("Remove")
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        TextButton(
+                            onClick = {
+                                context.startActivity(
+                                    Intent(Intent.ACTION_VIEW, Uri.parse("https://platform.openai.com/api-keys"))
+                                )
+                            }
+                        ) {
+                            Text("Get an OpenAI API key")
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Digital Assistant section
             Card(

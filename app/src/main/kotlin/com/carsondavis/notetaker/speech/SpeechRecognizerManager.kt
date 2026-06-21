@@ -29,7 +29,7 @@ class SpeechRecognizerManager(
     private val context: Context,
     private val onSegmentFinalized: (String) -> Unit,
     private val onError: (String) -> Unit
-) {
+) : VoiceRecognizer {
     private var recognizer: SpeechRecognizer? = null
     private val handler = Handler(Looper.getMainLooper())
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -44,12 +44,12 @@ class SpeechRecognizerManager(
         .build()
 
     private val _listeningState = MutableStateFlow(ListeningState.IDLE)
-    val listeningState: StateFlow<ListeningState> = _listeningState.asStateFlow()
+    override val listeningState: StateFlow<ListeningState> = _listeningState.asStateFlow()
 
     private val _partialText = MutableStateFlow("")
-    val partialText: StateFlow<String> = _partialText.asStateFlow()
+    override val partialText: StateFlow<String> = _partialText.asStateFlow()
 
-    val isAvailable: Boolean
+    override val isAvailable: Boolean
         get() = SpeechRecognizer.isRecognitionAvailable(context)
 
     /**
@@ -144,7 +144,7 @@ class SpeechRecognizerManager(
         override fun onEvent(eventType: Int, params: Bundle?) {}
     }
 
-    fun start() {
+    override fun start() {
         if (!isAvailable) {
             onError("Speech recognition not available")
             return
@@ -155,7 +155,7 @@ class SpeechRecognizerManager(
         beginListening()
     }
 
-    fun stop() {
+    override fun stop() {
         logTiming("session stop")
         _listeningState.value = ListeningState.IDLE
         _partialText.value = ""
@@ -166,7 +166,7 @@ class SpeechRecognizerManager(
         audioManager.abandonAudioFocusRequest(focusRequest)
     }
 
-    fun destroy() {
+    override fun destroy() {
         stop()
         try {
             recognizer?.destroy()

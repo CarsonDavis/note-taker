@@ -849,5 +849,28 @@ Re-ran the same script on the S24 Ultra:
 - **Catastrophic multi-word drops eliminated.** Sentence bodies that were lost in the baseline ("One. The", "Four. Maria"→only "Four" now lost, "Eight. Two children"→only "Eight" lost, "Ten. Fishermen", "Nine.") now survive. Saved note: `CarsonDavis/notes` commit `5544ae9`, `inbox/2026-05-31T142906-0500.md`.
 - **Residual drops remain:** a few one-syllable leading tokens (bare markers "Four/Five/Six/Eight", article "A" ×2) still fall in the ~80 ms gap, and ~10 `ERROR_NO_MATCH` restarts persist. F1 shrinks the gap but does not reach zero — only overlap (F3) fully closes it.
 
-**Status:** F1 implemented and verified as a substantial improvement (gap 2.6× smaller, whole-phrase losses gone). Decision pending: accept F1 (optionally + F4 endpointer tuning to cut restart frequency) vs. escalate to F3 double-buffer for zero-gap. Instrumentation still in place for whichever comes next.
+**Fix attempt F4 — endpointer silence extras (2026-05-31): REJECTED.**
+Added `EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS=2000`, `..._POSSIBLY_COMPLETE_...=2000`, and `..._MINIMUM_LENGTH_MILLIS=6000` to the recognizer intent, hoping the engine would end utterances less often (fewer restarts → fewer gaps). Re-measured on the S24 Ultra: instead of fewer restarts, Google's recognizer returned **empty final results (`onResults — segment=''`)** and a burst of `ERROR_NO_MATCH`, discarding whole utterances. User-visible result: "keeps losing my words" — clearly *worse* than F1. These extras are not honored as intended on this engine; they actively degrade recognition. **Reverted** — working tree restored to the committed F1 state (`git checkout`), never committed.
+
+**Status:** F1 (commit `8317c9d`) is the best result so far and is the current shipped behavior — gap ~215 ms → ~80 ms, whole-phrase drops gone, only occasional one-syllable drops remain. F4 tried and rejected. If the residual drops matter enough to pursue zero-gap, the remaining option is F3 (double-buffer, complex + dedup) or F5 (continuous engine, large rework); otherwise F1 stands. Debug-only SpeechTiming instrumentation remains in place pending that decision.
+
+---
+
+## M46 — Cloud transcription (BYOK OpenAI) + English lock
+
+**What was built.** A second voice engine alongside on-device, selectable in Settings → Voice Input ("On-device" vs "High accuracy").
+- `VoiceRecognizer` interface (`speech/VoiceRecognizer.kt`) abstracts the engine so the app can swap implementations. `SpeechRecognizerManager` now implements it.
+- `OpenAiRecognizer` (`speech/cloud/OpenAiRecognizer.kt`) streams 24 kHz PCM to OpenAI's Realtime transcription API (`gpt-4o-transcribe`) over a WebSocket and emits ordered segments.
+- `AuthManager` stores `voice_mode` (DataStore) and the user's OpenAI key (encrypted prefs, BYOK). Both are preserved across disconnect/sign-out — they're device prefs / the user's own key, not GitHub auth — and cleared only by a full data wipe.
+- `NoteViewModel.rebuildRecognizer()` swaps the live engine when the mode or key changes.
+- Debug-only `KeyInjectorReceiver` (`app/src/debug/`) lets dev tooling set the key / mode via adb; absent from release builds.
+
+**English lock (from the todo `note-app-language-lock` task).** The Realtime session config set only `model` and let the API auto-detect language, which occasionally produced Japanese / a Nordic language. Added `"language": "en"` (ISO-639-1) as a sibling of `model` inside `audio.input.transcription` — verified against OpenAI's realtime-transcription docs that this is the correct key and nesting for the GA session shape.
+
+**Verification.** `./gradlew :app:compileDebugKotlin` — BUILD SUCCESSFUL. Runtime behavior (the language fix actually stopping the drift; cloud mode end-to-end) NOT yet verified on-device — pending a build-and-push.
+
+**Known open issues (not addressed in this commit):**
+1. **Mic-not-active-on-open race (cloud mode).** `rebuildRecognizer()` decides whether to start the new engine from the *old* recognizer's transient `listeningState != IDLE`. On cold start the on-device engine is still `IDLE` (state flips to `LISTENING` only in the async `onReadyForSpeech`) when the DataStore-driven config rebuild lands, so a cloud-mode user can get a swapped-in engine that's never started → silent dead mic. Fix: base the decision on user intent (`inputMode == VOICE && permissionGranted`), not the old engine's momentary state.
+2. **Silent cloud failure (out-of-credit, etc.).** API `error` events (`handleEvent`, e.g. insufficient_quota) call `onError` but do NOT set `listeningState = IDLE`, so the mic can read "Listening…" while nothing transcribes; and errors surface only as a transient snackbar with no fallback. Needs a prominent, persistent warning + one-tap switch to on-device (keeping the saved key). Design pending.
+3. **Play Store privacy/data-safety docs** still say audio never leaves the device — must be revised to disclose OpenAI cloud streaming before any release with cloud mode enabled. Excluded from this commit deliberately.
 
