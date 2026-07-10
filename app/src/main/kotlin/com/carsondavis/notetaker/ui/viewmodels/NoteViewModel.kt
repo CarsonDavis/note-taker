@@ -90,6 +90,16 @@ class NoteViewModel @Inject constructor(
     private var engineOverride: String? = null
     private var cloudTransientRetries = 0
 
+    // Watchdog (M48): true while the mic is DELIBERATELY off (keyboard switch, submit,
+    // app pause) — the one thing that distinguishes "user stopped" from "engine died".
+    // Field evidence (2026-07-09): an on-device ERROR_CLIENT storm exhausted the
+    // engine-level retry budget and settled on IDLE mid-dictation with no recovery.
+    // When the engine lands on IDLE and this flag is false, maybeRearmVoice() restarts
+    // it after a backoff — dictation must not silently die while the user wants it on.
+    private var voicePaused = false
+    private var rearmJob: Job? = null
+    private var rearmBackoffMs = REARM_INITIAL_MS
+
     private fun onSegmentFinalized(segment: String) {
         confirmedText = if (confirmedText.isEmpty()) segment else "$confirmedText $segment"
         _uiState.update { it.copy(noteText = confirmedText) }
@@ -196,16 +206,10 @@ class NoteViewModel @Inject constructor(
         _uiState.update { it.copy(speechAvailable = voiceRecognizer.isAvailable) }
         observeRecognizerState()
         if (startIfIntended && _uiState.value.permissionGranted && voiceRecognizer.isAvailable) {
+            voicePaused = false
             _uiState.update { it.copy(inputMode = InputMode.VOICE) }
             voiceRecognizer.start()
         }
-    }
-
-    /** User accepted the on-device fallback — persist it as the preference and clear the banner. */
-    fun keepOnDevice() {
-        engineOverride = null
-        _uiState.update { it.copy(voiceEngineNotice = null) }
-        viewModelScope.launch { authManager.setVoiceMode(AuthManager.VOICE_MODE_ON_DEVICE) }
     }
 
     /** User wants to retry cloud (e.g. after topping up). Uses the still-saved key. */
@@ -270,9 +274,13 @@ class NoteViewModel @Inject constructor(
         recognizerStateJob = viewModelScope.launch {
             launch {
                 recognizer.listeningState.collect { state ->
-                    // A healthy session clears the transient-retry budget.
-                    if (state == ListeningState.LISTENING) cloudTransientRetries = 0
+                    // A healthy session clears the transient-retry budgets.
+                    if (state == ListeningState.LISTENING) {
+                        cloudTransientRetries = 0
+                        rearmBackoffMs = REARM_INITIAL_MS
+                    }
                     _uiState.update { it.copy(listeningState = state) }
+                    if (state == ListeningState.IDLE) maybeRearmVoice(recognizer)
                 }
             }
             launch {
@@ -288,6 +296,27 @@ class NoteViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Watchdog: the engine settled on IDLE while the user still wants the mic on and
+     * nothing deliberate stopped it — re-arm after a backoff (doubling to a cap, reset
+     * whenever LISTENING is reached). Retries indefinitely: the capture screen is open
+     * and awake, so a slow, gentle retry loop is exactly the desired behavior.
+     */
+    private fun maybeRearmVoice(engine: VoiceRecognizer) {
+        if (voicePaused || !voiceIntended() || _uiState.value.isSubmitting) return
+        rearmJob?.cancel()
+        rearmJob = viewModelScope.launch {
+            delay(rearmBackoffMs)
+            rearmBackoffMs = (rearmBackoffMs * 2).coerceAtMost(REARM_MAX_MS)
+            // Re-check everything at fire time: the world may have changed during the delay
+            // (user switched to keyboard, engine swapped, another path already restarted it).
+            if (voicePaused || !voiceIntended() || _uiState.value.isSubmitting) return@launch
+            if (voiceRecognizer !== engine) return@launch
+            if (voiceRecognizer.listeningState.value != ListeningState.IDLE) return@launch
+            voiceRecognizer.start()
+        }
+    }
+
     fun onPermissionResult(granted: Boolean) {
         _uiState.update { it.copy(permissionGranted = granted) }
         if (granted && _uiState.value.speechAvailable) {
@@ -298,14 +327,29 @@ class NoteViewModel @Inject constructor(
     }
 
     fun startVoiceInput() {
-        if (!_uiState.value.permissionGranted || !_uiState.value.speechAvailable) return
+        if (!_uiState.value.permissionGranted) return
+        voicePaused = false
         // Sync confirmedText from whatever is currently in noteText
         confirmedText = _uiState.value.noteText.trim()
         _uiState.update { it.copy(inputMode = InputMode.VOICE) }
+        // A new dictation session (app resume, mic button) retries the user's preferred
+        // engine: a cloud failure parks us on-device only for the rest of THAT session,
+        // not until process death. If cloud fails again, fallbackToOnDevice() re-raises
+        // the banner.
+        if (engineOverride != null) {
+            engineOverride = null
+            if (currentMode != AuthManager.VOICE_MODE_ON_DEVICE) {
+                _uiState.update { it.copy(voiceEngineNotice = null) }
+                switchEngine(currentMode, currentKey, startIfIntended = true)
+                return
+            }
+        }
+        if (!_uiState.value.speechAvailable) return
         voiceRecognizer.start()
     }
 
     fun switchToKeyboard() {
+        voicePaused = true
         voiceRecognizer.stop()
         // Keep current noteText as-is for keyboard editing
         confirmedText = _uiState.value.noteText.trim()
@@ -313,6 +357,7 @@ class NoteViewModel @Inject constructor(
     }
 
     fun stopVoiceInput() {
+        voicePaused = true // also guards the watchdog against re-arming a backgrounded app
         voiceRecognizer.stop()
     }
 
@@ -336,6 +381,7 @@ class NoteViewModel @Inject constructor(
         if (text.isEmpty() || _uiState.value.isSubmitting) return
 
         val wasVoice = _uiState.value.inputMode == InputMode.VOICE
+        voicePaused = true
         voiceRecognizer.stop()
 
         viewModelScope.launch {
@@ -369,6 +415,7 @@ class NoteViewModel @Inject constructor(
                 }
                 // Restart voice if we were in voice mode
                 if (wasVoice && _uiState.value.permissionGranted && _uiState.value.speechAvailable) {
+                    voicePaused = false
                     _uiState.update { it.copy(inputMode = InputMode.VOICE) }
                     voiceRecognizer.start()
                 }
@@ -384,5 +431,9 @@ class NoteViewModel @Inject constructor(
     private companion object {
         /** Silent cloud reconnect attempts before falling back to on-device. */
         const val MAX_CLOUD_RETRIES = 2
+
+        /** Watchdog re-arm backoff: starts here, doubles per attempt, capped below. */
+        const val REARM_INITIAL_MS = 1000L
+        const val REARM_MAX_MS = 8000L
     }
 }

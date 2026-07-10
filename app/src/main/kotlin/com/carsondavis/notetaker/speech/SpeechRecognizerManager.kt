@@ -25,6 +25,9 @@ enum class ListeningState {
 /** Logcat tag for M45 dictation dead-window diagnostics: `adb logcat -s SpeechTiming`. */
 private const val TAG = "SpeechTiming"
 
+/** Consecutive CLIENT/NETWORK error restarts allowed before failing loudly. */
+private const val MAX_RECOVERY_RESTARTS = 3
+
 class SpeechRecognizerManager(
     private val context: Context,
     private val onSegmentFinalized: (String) -> Unit,
@@ -59,6 +62,18 @@ class SpeechRecognizerManager(
      */
     private var lastCaptureEndAt: Long = 0L
 
+    /**
+     * Consecutive recoverable errors (CLIENT/NETWORK/NETWORK_TIMEOUT) without the engine
+     * reaching onReadyForSpeech in between. Field evidence (S24 Ultra, 2026-07-09 logcat):
+     * a spurious ERROR_CLIENT fired 8ms after startListening mid restart-loop while the
+     * engine kept working, and a transient ERROR_NETWORK fired mid-utterance — both hit
+     * the fatal branch, set IDLE, and every later restart() was suppressed because IDLE
+     * reads as "user stopped". The mic silently died until the user tapped the text box.
+     * These codes now restart, bounded by [MAX_RECOVERY_RESTARTS] so a genuinely broken
+     * engine (mic revoked, offline) still fails loudly instead of hot-looping.
+     */
+    private var consecutiveRecoveryRestarts = 0
+
     private fun logTiming(msg: String) {
         if (BuildConfig.DEBUG) Log.d(TAG, "${SystemClock.elapsedRealtime()} | $msg")
     }
@@ -67,6 +82,7 @@ class SpeechRecognizerManager(
         override fun onReadyForSpeech(params: Bundle?) {
             val gap = if (lastCaptureEndAt > 0L) SystemClock.elapsedRealtime() - lastCaptureEndAt else -1L
             logTiming("onReadyForSpeech — DEAD WINDOW since last capture end: ${gap}ms")
+            consecutiveRecoveryRestarts = 0 // engine is healthy again
             _listeningState.value = ListeningState.LISTENING
         }
 
@@ -100,6 +116,32 @@ class SpeechRecognizerManager(
                     // Transient — restart to keep listening
                     _partialText.value = ""
                     restart()
+                }
+                SpeechRecognizer.ERROR_CLIENT,
+                SpeechRecognizer.ERROR_NETWORK,
+                SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> {
+                    // Recoverable (see consecutiveRecoveryRestarts doc). ERROR_CLIENT also
+                    // fires after every deliberate stop() — the IDLE gate below ignores it
+                    // instead of raising the old spurious "Client error" snackbar.
+                    _partialText.value = ""
+                    if (_listeningState.value == ListeningState.IDLE) return
+                    if (consecutiveRecoveryRestarts < MAX_RECOVERY_RESTARTS) {
+                        consecutiveRecoveryRestarts++
+                        logTiming("recoverable error $error — recreate ${consecutiveRecoveryRestarts}/$MAX_RECOVERY_RESTARTS")
+                        // Recreate with delay, NOT instant reuse-restart: field evidence
+                        // (2026-07-09, 21:07:58 logcat) showed four ERROR_CLIENTs inside 5ms —
+                        // each instant startListening into a still-busy engine threw the next
+                        // error, burning the whole budget before onReadyForSpeech could reset
+                        // it. destroy + 150ms breaks the collision and clears wedged state.
+                        _listeningState.value = ListeningState.RESTARTING
+                        recreateAndStart()
+                    } else {
+                        logTiming("recoverable error $error — budget exhausted, going fatal")
+                        _listeningState.value = ListeningState.IDLE
+                        val message = if (error == SpeechRecognizer.ERROR_CLIENT)
+                            "Speech recognition keeps failing" else "Network error"
+                        onError(VoiceError(message, VoiceErrorKind.OTHER, VoiceEngine.ON_DEVICE))
+                    }
                 }
                 else -> {
                     // Real error — stop and notify

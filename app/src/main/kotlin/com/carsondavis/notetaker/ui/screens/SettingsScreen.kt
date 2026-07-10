@@ -257,7 +257,7 @@ fun SettingsScreen(
                         FilterChip(
                             selected = uiState.voiceMode == "on_device",
                             onClick = { viewModel.setVoiceMode("on_device") },
-                            label = { Text("On-device") }
+                            label = { Text("On-device only") }
                         )
                         FilterChip(
                             selected = uiState.voiceMode == "cloud",
@@ -268,9 +268,10 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = if (uiState.voiceMode == "cloud") {
-                            "Streams audio to OpenAI for high-accuracy, gapless transcription. Requires your own OpenAI API key (below); your audio is sent to OpenAI while you dictate."
+                            "Streams audio to OpenAI for high-accuracy, gapless transcription. Requires your own OpenAI API key (below); your audio is sent to OpenAI while you dictate. " +
+                                    "If the connection fails, dictation falls back to on-device for that session and retries high accuracy next time."
                         } else {
-                            "Uses Android's built-in speech recognition. Free and works offline, but may drop an occasional word between phrases."
+                            "Only uses Android's built-in speech recognition. Free and works offline, but may drop an occasional word between phrases."
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant

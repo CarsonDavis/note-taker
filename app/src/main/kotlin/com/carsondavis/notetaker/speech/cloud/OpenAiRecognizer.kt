@@ -64,6 +64,13 @@ class OpenAiRecognizer(
     @Volatile private var recording = false
     private var captureThread: Thread? = null
 
+    /**
+     * True once we (client) have deliberately closed the socket — via [stop] or the
+     * API-error teardown. Distinguishes those from a server-initiated close in
+     * [WebSocketListener.onClosed], which must trigger recovery. Reset on each [start].
+     */
+    @Volatile private var intentionalClose = false
+
     /** Accumulates the current segment's streamed delta text for live display. */
     private val currentSegment = StringBuilder()
 
@@ -103,6 +110,7 @@ class OpenAiRecognizer(
             return
         }
         if (recording || webSocket != null) return
+        intentionalClose = false
         log("start — connecting")
         resetOrdering()
         _listeningState.value = ListeningState.RESTARTING // "connecting"
@@ -166,8 +174,24 @@ class OpenAiRecognizer(
         }
 
         override fun onClosed(ws: WebSocket, code: Int, reason: String) {
-            log("ws closed: $code $reason")
+            log("ws closed: $code $reason (intentional=$intentionalClose)")
+            // An intentional close (stop(), or the API-error teardown below) — or a socket
+            // onFailure already tore down (webSocket nulled) — needs no recovery. Settle to IDLE.
+            if (intentionalClose || webSocket == null) {
+                _listeningState.value = ListeningState.IDLE
+                return
+            }
+            // Server-initiated close mid-dictation: OpenAI's realtime idle/session-duration
+            // cutoff, or a network drop that closed cleanly instead of erroring. This path
+            // previously ONLY set IDLE — no VoiceError — so the mic silently died with no
+            // reconnect, no fallback, no banner, while the capture thread kept holding the mic.
+            // Tear down and surface a TRANSIENT failure so the ViewModel's reconnect→fallback
+            // path runs, exactly like onFailure.
+            stopAudioCapture()
+            webSocket = null
             _listeningState.value = ListeningState.IDLE
+            _partialText.value = ""
+            fail("Cloud transcription connection closed", VoiceErrorKind.TRANSIENT)
         }
     }
 
@@ -214,6 +238,7 @@ class OpenAiRecognizer(
                 // Mid-session API error (e.g. out of credit): tear the session down so the
                 // mic stops showing "Listening…" while nothing is being transcribed — the
                 // silent-failure bug. The ViewModel decides whether to fall back.
+                intentionalClose = true
                 stopAudioCapture()
                 try { webSocket?.close(1000, "api error") } catch (_: Exception) {}
                 webSocket = null
@@ -279,6 +304,7 @@ class OpenAiRecognizer(
 
     override fun stop() {
         log("stop")
+        intentionalClose = true
         _listeningState.value = ListeningState.IDLE
         _partialText.value = ""
         resetOrdering()

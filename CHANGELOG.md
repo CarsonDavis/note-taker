@@ -4,7 +4,7 @@
 
 **What's New**
 - Optional high-accuracy voice input. Settings now has a **Voice Input** section where you can switch from on-device dictation to cloud transcription powered by OpenAI. It's bring-your-own-key: paste your own OpenAI API key (stored encrypted on your device, never sent anywhere but OpenAI). In this mode your audio is streamed to OpenAI while you dictate; on-device stays the default and the disclosure is shown right in Settings.
-- Graceful fallback if cloud voice fails. If high-accuracy transcription stops mid-dictation — your OpenAI credit runs out, the key is rejected, the connection drops — GitJot now switches to on-device voice automatically so you keep dictating, and shows a banner explaining what happened with one-tap **Retry high-accuracy** and **Keep on-device**. Your saved key is never touched.
+- Graceful fallback if cloud voice fails. If high-accuracy transcription stops mid-dictation — your OpenAI credit runs out, the key is rejected, the connection drops — GitJot now switches to on-device voice automatically so you keep dictating, and shows a banner explaining what happened with one-tap **Retry high-accuracy**. The fallback lasts only until you next open the app to dictate: high accuracy is retried automatically each new session, and your saved key is never touched. Switching engines permanently is done in Settings ("On-device only" / "High accuracy").
 
 **What's Changed**
 - Removed the topic bar from the top of the note screen — notes now carry their own context, so a single repo-wide topic is no longer shown. The browse and settings icons remain.
@@ -15,6 +15,8 @@
 - The screen no longer sleeps while you're taking a note.
 
 **Bug Fix**
+- Fixed the mic silently turning off mid-dictation and staying dead until you tapped the text box. Three causes: the cloud connection closing without triggering any recovery, rare on-device recognizer errors being treated as fatal, and nothing in the app ever re-arming a mic that died on its own. Dictation now recovers automatically — a watchdog restarts the mic within seconds whenever it stops while you still want it on.
+- Fixed a spurious "Client error" message appearing after ending a dictation session.
 - Fixed the mic occasionally being inactive right after opening the app — a startup race when cloud voice was the selected engine.
 
 ## v0.5.2

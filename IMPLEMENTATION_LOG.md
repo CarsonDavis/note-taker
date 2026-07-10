@@ -896,3 +896,64 @@ Resolves open issues #1 and #2 from M46; adds the GitJot punch-list "block scree
 
 **Still open:** M46 issue #3 — Play Store privacy/data-safety docs must disclose cloud audio before a release with cloud mode enabled.
 
+
+---
+
+## M48 — Dead-mic recovery: onClosed teardown, error-storm containment, watchdog, cloud-preferred fallback
+
+Root-caused and fixed the long-standing "mic silently turns off mid-dictation" bug. All
+three mechanical causes were caught in live logcat evidence (S24 Ultra, 2026-07-09,
+`adb logcat -d -v time OpenAiRecognizer:D SpeechTiming:D '*:S'`).
+
+**Root causes (evidence-confirmed).**
+1. *Cloud:* a server-initiated WebSocket close landed in `onClosed`, which only set
+   `IDLE` — no `VoiceError`, so none of the M47 reconnect/fallback/banner machinery ran,
+   and the capture thread kept holding the mic against a dead socket.
+2. *On-device:* spurious `ERROR_CLIENT` (fired 8 ms after a restart-loop `startListening`
+   while the engine demonstrably kept working) and mid-utterance `ERROR_NETWORK` hit the
+   fatal else-branch → `IDLE`. A first fix (restart with attempt budget) was falsified in
+   the field: four `ERROR_CLIENT`s arrived within 5 ms — instant reuse-restarts into a
+   still-busy engine each threw the next error, burning the budget before
+   `onReadyForSpeech` could reset it.
+3. *Design:* `IDLE` conflated "user stopped" with "engine died", so every auto-restart
+   path refused to run after a fatal error, and no component ever re-armed a dead mic.
+   The UI hides the mic button in voice mode, so the user's only recovery was tapping the
+   text box (→ keyboard mode → mic button visible) — the reported workaround exactly.
+
+**Fixes.**
+- `OpenAiRecognizer.onClosed`: distinguishes intentional closes (`stop()`, API-error
+  teardown — `intentionalClose` flag, reset on `start()`) from server-initiated ones;
+  the latter now stop capture, null the socket, and raise a `TRANSIENT` `VoiceError`,
+  entering the M47 reconnect→fallback→banner path.
+- `SpeechRecognizerManager`: `ERROR_CLIENT`/`ERROR_NETWORK`/`ERROR_NETWORK_TIMEOUT` are
+  recoverable via `recreateAndStart()` (destroy + 150 ms — spacing breaks the error-storm
+  collision), budget `MAX_RECOVERY_RESTARTS` (3) resetting on `onReadyForSpeech`; exhausted
+  budget goes fatal with a snackbar. The post-`stop()` `ERROR_CLIENT` every session ends
+  with is ignored via an `IDLE` gate (kills the spurious "Client error" snackbar).
+- `NoteViewModel` watchdog: explicit `voicePaused` flag marks every deliberate stop
+  (keyboard switch, submit, `ON_PAUSE`); when an engine settles on `IDLE` with voice
+  intended and not paused, `maybeRearmVoice()` restarts it after a backoff (1 s doubling
+  to 8 s cap, reset on reaching `LISTENING`, retries indefinitely — capture screen is
+  awake by design). All conditions re-checked at fire time; no background mic activation.
+- Cloud-preferred UX ("Approach A"): `startVoiceInput()` clears `engineOverride` each new
+  dictation session, so a cloud failure costs on-device for *that session only* and cloud
+  is retried automatically on the next app-open/mic-tap. The banner's **Keep on-device**
+  button (which permanently rewrote `voiceMode` in one tap — likely how the user got
+  parked on on-device without knowing) is removed; permanent engine choice now lives only
+  in Settings, relabeled "On-device only" / "High accuracy" with fallback explained.
+  Supersedes the M47 banner-action design.
+
+**Verification (on-device, S24 Ultra, debug build, md5-verified install).**
+- Live repro on the pre-watchdog build captured the `ERROR_CLIENT` storm and the
+  budget-exhaustion fatal in logcat — the falsification that motivated the recreate
+  spacing + watchdog.
+- Post-fix build: cloud engine (user's real key) connected and streamed ordered segments;
+  extended on-device and cloud dictation sessions survived without a stuck-dead mic;
+  user reports it working — **provisionally fixed**, pending longer real-world use.
+- NOT individually exercised: watchdog re-arm observed under natural failure (needs a
+  field `IDLE` on the new build), airplane-mode mid-dictation fallback→banner→next-session
+  cloud-retry cycle.
+
+**Still open:** M46 issue #3 (Play Store privacy docs). USB note: this device's cable
+drops under sustained transfer — verify installs by comparing `md5sum` of the installed
+`base.apk` (`pm path`) against the local APK.

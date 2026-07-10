@@ -92,13 +92,13 @@ import kotlinx.coroutines.launch
 
 /**
  * Persistent banner shown when cloud transcription failed and the app auto-fell back to
- * on-device. Replaces the easy-to-miss transient snackbar for engine failures — the user
- * keeps dictating on-device and decides whether to make it permanent or retry the cloud.
+ * on-device *for this session* — the preferred engine is retried automatically on the
+ * next session (app resume / mic tap). Dismissing just hides the banner; switching to
+ * on-device permanently is a Settings decision, not a banner tap.
  */
 @Composable
 private fun VoiceEngineBanner(
     notice: VoiceEngineNotice,
-    onKeepOnDevice: () -> Unit,
     onRetryCloud: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -135,12 +135,10 @@ private fun VoiceEngineBanner(
                     )
                 }
             }
-            Row(modifier = Modifier.padding(top = 4.dp)) {
-                if (notice.canRetryCloud) {
+            if (notice.canRetryCloud) {
+                Row(modifier = Modifier.padding(top = 4.dp)) {
                     TextButton(onClick = onRetryCloud) { Text("Retry high-accuracy") }
-                    Spacer(modifier = Modifier.width(8.dp))
                 }
-                TextButton(onClick = onKeepOnDevice) { Text("Keep on-device") }
             }
         }
     }
@@ -314,7 +312,6 @@ fun NoteInputScreen(
             uiState.voiceEngineNotice?.let { notice ->
                 VoiceEngineBanner(
                     notice = notice,
-                    onKeepOnDevice = { viewModel.keepOnDevice() },
                     onRetryCloud = { viewModel.retryCloud() },
                     onDismiss = { viewModel.dismissVoiceNotice() }
                 )
