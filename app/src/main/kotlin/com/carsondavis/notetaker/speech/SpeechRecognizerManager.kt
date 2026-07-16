@@ -19,7 +19,18 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 enum class ListeningState {
-    IDLE, LISTENING, RESTARTING
+    /** Mic deliberately off, or the engine terminally failed. */
+    IDLE,
+    /** Actively transcribing (cloud: session config acked by the server). */
+    LISTENING,
+    /** On-device between-segment restart blip (~100ms); shows as "Listening…". */
+    RESTARTING,
+    /** Cloud: initial connect, before the server acks the session config. Mic is HOT
+     *  and buffering — words spoken now are sent once the session is ready. */
+    CONNECTING,
+    /** Cloud: mid-session transport recovery. Mic is HOT and buffering; audio replays
+     *  from the last server-transcribed boundary once reconnected. */
+    RECOVERING
 }
 
 /** Logcat tag for M45 dictation dead-window diagnostics: `adb logcat -s SpeechTiming`. */
@@ -74,6 +85,16 @@ class SpeechRecognizerManager(
      */
     private var consecutiveRecoveryRestarts = 0
 
+    /**
+     * M49: true between stop() and the next start(). Replaces the old IDLE-state gate
+     * for ignoring post-stop errors — reusing IDLE for that conflated "deliberately
+     * stopped" with "engine died" and silently swallowed errors during watchdog restart
+     * attempts (the review's critical finding: swallowed error → no state emission →
+     * watchdog starves). Set BEFORE stopListening() so the spurious ERROR_CLIENT every
+     * deliberate stop fires stays suppressed.
+     */
+    @Volatile private var stopped = true
+
     private fun logTiming(msg: String) {
         if (BuildConfig.DEBUG) Log.d(TAG, "${SystemClock.elapsedRealtime()} | $msg")
     }
@@ -101,14 +122,27 @@ class SpeechRecognizerManager(
 
         override fun onError(error: Int) {
             lastCaptureEndAt = SystemClock.elapsedRealtime()
+            if (stopped) {
+                logTiming("onError code=$error after deliberate stop — ignored")
+                return
+            }
             logTiming("onError code=$error")
             when (error) {
                 SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> {
-                    // Reuse outran the engine resetting — fall back to a full recreate.
+                    // Reuse outran the engine resetting — full recreate, but budgeted:
+                    // an endlessly-busy engine used to loop destroy/create forever,
+                    // pinned at RESTARTING where the watchdog can't see it.
                     _partialText.value = ""
-                    logTiming("recognizer busy — full recreate")
-                    _listeningState.value = ListeningState.RESTARTING
-                    recreateAndStart()
+                    if (consecutiveRecoveryRestarts < MAX_RECOVERY_RESTARTS) {
+                        consecutiveRecoveryRestarts++
+                        logTiming("recognizer busy — recreate ${consecutiveRecoveryRestarts}/$MAX_RECOVERY_RESTARTS")
+                        _listeningState.value = ListeningState.RESTARTING
+                        recreateAndStart()
+                    } else {
+                        logTiming("recognizer busy — budget exhausted, going fatal")
+                        _listeningState.value = ListeningState.IDLE
+                        onError(VoiceError("Speech recognizer stuck busy", VoiceErrorKind.OTHER, VoiceEngine.ON_DEVICE))
+                    }
                 }
                 SpeechRecognizer.ERROR_NO_MATCH,
                 SpeechRecognizer.ERROR_SPEECH_TIMEOUT,
@@ -120,11 +154,10 @@ class SpeechRecognizerManager(
                 SpeechRecognizer.ERROR_CLIENT,
                 SpeechRecognizer.ERROR_NETWORK,
                 SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> {
-                    // Recoverable (see consecutiveRecoveryRestarts doc). ERROR_CLIENT also
-                    // fires after every deliberate stop() — the IDLE gate below ignores it
-                    // instead of raising the old spurious "Client error" snackbar.
+                    // Recoverable (see consecutiveRecoveryRestarts doc). Post-stop
+                    // ERROR_CLIENT is handled by the `stopped` guard above, so a
+                    // genuine error while idle-but-wanted is no longer swallowed.
                     _partialText.value = ""
-                    if (_listeningState.value == ListeningState.IDLE) return
                     if (consecutiveRecoveryRestarts < MAX_RECOVERY_RESTARTS) {
                         consecutiveRecoveryRestarts++
                         logTiming("recoverable error $error — recreate ${consecutiveRecoveryRestarts}/$MAX_RECOVERY_RESTARTS")
@@ -192,6 +225,11 @@ class SpeechRecognizerManager(
             return
         }
         logTiming("session start")
+        stopped = false
+        // Announce the start immediately: start() leaving state at IDLE made the
+        // engine lie to the watchdog (its restart attempt looked like nothing
+        // happened). LISTENING still only comes from onReadyForSpeech.
+        _listeningState.value = ListeningState.RESTARTING
         audioManager.requestAudioFocus(focusRequest)
         ensureRecognizer()
         beginListening()
@@ -199,6 +237,7 @@ class SpeechRecognizerManager(
 
     override fun stop() {
         logTiming("session stop")
+        stopped = true // before stopListening(): suppresses the spurious post-stop ERROR_CLIENT
         _listeningState.value = ListeningState.IDLE
         _partialText.value = ""
         handler.removeCallbacksAndMessages(null)

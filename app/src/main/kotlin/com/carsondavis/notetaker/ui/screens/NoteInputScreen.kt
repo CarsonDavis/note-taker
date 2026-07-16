@@ -242,6 +242,27 @@ fun NoteInputScreen(
         )
     }
 
+    // Submit tapped while the cloud engine is reconnecting: buffered speech may not be
+    // transcribed yet, so confirm rather than silently saving a note missing its tail.
+    if (uiState.showRecoverySubmitConfirm) {
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissRecoverySubmitConfirm() },
+            title = { Text("Still reconnecting") },
+            text = {
+                Text(
+                    "The connection dropped and your last words may not be in the note yet. " +
+                            "Wait a moment for them to appear, or submit what's shown now."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.submit(force = true) }) { Text("Submit anyway") }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.dismissRecoverySubmitConfirm() }) { Text("Wait") }
+            }
+        )
+    }
+
     // Permission launcher
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -364,18 +385,25 @@ fun NoteInputScreen(
                         )
                     }
 
-                    // Listening indicator
+                    // Listening indicator. The mic icon reflects whether the mic is
+                    // actually HOT: during CONNECTING/RECOVERING the cloud engine is
+                    // capturing and buffering (words replay once the session is up),
+                    // so showing mic-off there would misrepresent an active recording.
                     if (uiState.inputMode == InputMode.VOICE) {
+                        val micHot = when (uiState.listeningState) {
+                            ListeningState.LISTENING,
+                            ListeningState.CONNECTING,
+                            ListeningState.RECOVERING -> true
+                            ListeningState.RESTARTING, ListeningState.IDLE -> false
+                        }
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(top = 8.dp)
                         ) {
                             Icon(
-                                imageVector = if (uiState.listeningState == ListeningState.LISTENING)
-                                    Icons.Default.Mic else Icons.Default.MicOff,
+                                imageVector = if (micHot) Icons.Default.Mic else Icons.Default.MicOff,
                                 contentDescription = null,
-                                tint = if (uiState.listeningState == ListeningState.LISTENING)
-                                    MaterialTheme.colorScheme.primary
+                                tint = if (micHot) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -384,11 +412,12 @@ fun NoteInputScreen(
                                 text = when (uiState.listeningState) {
                                     ListeningState.LISTENING -> "Listening..."
                                     ListeningState.RESTARTING -> "Listening..."
+                                    ListeningState.CONNECTING -> "Connecting..."
+                                    ListeningState.RECOVERING -> "Reconnecting..."
                                     ListeningState.IDLE -> "Mic idle"
                                 },
                                 style = MaterialTheme.typography.bodySmall,
-                                color = if (uiState.listeningState == ListeningState.LISTENING)
-                                    MaterialTheme.colorScheme.primary
+                                color = if (micHot) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }

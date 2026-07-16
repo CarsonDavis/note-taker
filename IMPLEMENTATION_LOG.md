@@ -957,3 +957,89 @@ three mechanical causes were caught in live logcat evidence (S24 Ultra, 2026-07-
 **Still open:** M46 issue #3 (Play Store privacy docs). USB note: this device's cable
 drops under sustained transfer — verify installs by comparing `md5sum` of the installed
 `base.apk` (`pm path`) against the local APK.
+
+---
+
+## M49 — Cloud transport tier: lossless dictation over flaky networks
+
+The product-stance milestone (high accuracy IS the product; on-device is a fallback):
+decouple microphone capture from the WebSocket so network failures stop losing words.
+Design went through three adversarial review rounds + an on-device API-capture session
+before implementation; every load-bearing claim below is verified-empirically or
+verified-against-source, not assumed.
+
+**Architecture (`speech/cloud/OpenAiRecognizer.kt`, rewritten).**
+- AudioRecord + audio focus + a 60 s PCM ring buffer (2.88 MB) live for the whole
+  dictation session; the socket is just transport. The capture thread always writes to
+  the ring and is the single sender — live streaming and backlog replay are one
+  cursor-chase code path, paced by `queueSize()` so a large backlog can't flood OkHttp.
+- **Replay watermark = last contiguously transcribed utterance boundary.** Per-item
+  `audio_end_ms` recorded at `speech_stopped`, watermark advanced only as
+  `transcription.completed`/`.failed` arrive in item order. (Review #3 killed the
+  commit-boundary design: commit→transcript lags 0.7–1.3 s on every utterance —
+  measured — so a commit-anchored watermark silently drops the last sentence.)
+  `audio_end_ms` is session-relative (empirical), so absolute = sessionBase + 48·ms
+  with the base re-recorded at each replay start; replay begins 300 ms before the
+  watermark because server-VAD prefix padding reaches backward (empirical — replaying
+  exactly from the boundary clips the next utterance's first syllable).
+- **LISTENING is gated on the `session.updated` ack**, never `session.created`:
+  captured a live incident (2026-07-15) where a session was created with
+  `transcription: null` and transcribed nothing for 40 s while the UI said
+  "Listening…". Audio sends (live or replay) never precede the ack; each connect
+  attempt is deadlined through the ack (connects took 10 s on bad service).
+- In-engine recovery: RECOVERING state, exponential backoff, stall detector
+  (`queueSize()` persistently high and non-draining → proactive cancel+reconnect
+  instead of the 20–40 s ping timeout). Budgets: 20 s when a network is present but
+  broken (on-device fallback works there); 60 s — the full ring — when provably
+  offline (field test: on-device returns only NO_MATCH offline on this device, so
+  early fallback abandoned 18 s of recoverable audio; the longer budget recovers it).
+  Terminal failure emits exactly ONE VoiceError; transient errors never leave the
+  engine. `transcription.failed` items record empty text so a dead item can't wedge
+  the ordering queue; session boundaries purge all old-session ordering state
+  atomically. Socket callbacks are identity-checked (`ws === webSocket`);
+  `AudioRecord.read() <= 0` and `send() == false` are failures, never spins.
+
+**Supervisor (`NoteViewModel`).** The 800 ms transient-retry path is deleted (second
+retry authority = double sessions/billing). Watchdog is now a self-rescheduling backoff
+loop (1→8 s) — the old edge-triggered version starved after one attempt because
+StateFlow dedups equal values. `switchEngine` starts the new engine iff
+`voiceIntended() && !voicePaused` and never mutates those flags — closes the
+Settings-screen hot-mic bug while preserving the M47 cold-start fix, instant fallback,
+and banner-Retry. `submit()` during CONNECTING/RECOVERING raises a confirm dialog
+instead of silently saving a note missing its buffered tail.
+
+**On-device (`SpeechRecognizerManager`) — frozen except a safety exemption.** `start()`
+emits RESTARTING immediately (an engine that changes nothing on start lies to the
+watchdog); an explicit `stopped` flag (set before `stopListening()`) replaces the
+error-swallowing IDLE gate; ERROR_RECOGNIZER_BUSY recreates now count against the
+retry budget (previously an unbounded 150 ms loop pinned at RESTARTING).
+
+**UI (`NoteInputScreen`).** States: Connecting… / Listening… / Reconnecting… / Mic
+idle. The mic icon shows HOT during Connecting/Reconnecting — capture is genuinely
+running there; showing mic-off while recording misrepresented an active mic.
+ListeningState gained CONNECTING and RECOVERING; VoiceErrorKind.TRANSIENT deleted.
+Added ACCESS_NETWORK_STATE (offline short-circuit via ConnectivityManager).
+
+**Process note.** v1–v3 of this design each contained a guarantee-breaking flaw caught
+by independent adversarial review (v1: OkHttp send() enqueues ~4 min on a stalled
+socket; v2: queueSize() can't see the kernel TCP send buffer; v3: commit≠transcribed +
+session-relative offsets). The v4 watermark design was grounded in an instrumented
+capture of the real GA event stream (21 utterance cycles + a fake-LISTENING incident)
+rather than documentation memory. Full-payload debug event logging remains in
+handleEvent for future field debugging.
+
+**Verification (on-device, S24 Ultra, md5-checked installs, scripted dictation).**
+- Smoke: PASS — bonus: words spoken during Connecting… were buffered and replayed
+  (previously lost).
+- Flagship (gate a): PASS — a sentence spoken ENTIRELY inside airplane mode appeared
+  in the note after reconnect; two consecutive outages in one dictation exercised
+  replay-of-replay + per-session rebase + a full-ring 60 s replay; zero word loss.
+- Terminal fallback: exercised in the field (first airplane test exceeded the then-6 s
+  offline budget): one terminal error, instant on-device start, loss logged to the
+  byte (~18 s) — which motivated the 60 s offline budget shipped here.
+- NOT yet exercised: gate (b) coverage-fade stall (needs a controllable network — the
+  detector's false-positive guard (drain pacing) is design-verified only), gate (d)
+  Settings-cold check on the final build, banner visibility (user didn't report).
+
+**Still open:** M46 issue #3 (Play Store privacy docs), offline language pack as an
+alternative offline story, RECOVERY_BUDGET tuning for captive-portal-style failures.

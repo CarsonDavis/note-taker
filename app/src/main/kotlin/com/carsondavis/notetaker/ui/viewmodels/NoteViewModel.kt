@@ -55,7 +55,11 @@ data class NoteUiState(
     val listeningState: ListeningState = ListeningState.IDLE,
     val speechAvailable: Boolean = false,
     val permissionGranted: Boolean = false,
-    val voiceEngineNotice: VoiceEngineNotice? = null
+    val voiceEngineNotice: VoiceEngineNotice? = null,
+    /** Submit was tapped while the cloud engine is reconnecting — buffered speech may
+     *  not be transcribed yet. UI shows a confirm dialog instead of silently saving a
+     *  note missing its tail. */
+    val showRecoverySubmitConfirm: Boolean = false
 )
 
 @HiltViewModel
@@ -86,19 +90,17 @@ class NoteViewModel @Inject constructor(
 
     // Session-only engine override after a cloud failure: forces on-device without
     // changing the saved voiceMode preference or the stored key. Cleared when the
-    // user explicitly changes the mode in Settings, retries cloud, or keeps on-device.
+    // user explicitly changes the mode in Settings, retries cloud, or starts a new
+    // dictation session (cloud is re-tried automatically each session).
     private var engineOverride: String? = null
-    private var cloudTransientRetries = 0
 
-    // Watchdog (M48): true while the mic is DELIBERATELY off (keyboard switch, submit,
-    // app pause) — the one thing that distinguishes "user stopped" from "engine died".
-    // Field evidence (2026-07-09): an on-device ERROR_CLIENT storm exhausted the
-    // engine-level retry budget and settled on IDLE mid-dictation with no recovery.
-    // When the engine lands on IDLE and this flag is false, maybeRearmVoice() restarts
-    // it after a backoff — dictation must not silently die while the user wants it on.
+    // Watchdog (M48, hardened M49): true while the mic is DELIBERATELY off (keyboard
+    // switch, submit, app pause) — the one thing that distinguishes "user stopped"
+    // from "engine died". Only resumed-screen user paths clear it; switchEngine never
+    // touches it. When the engine lands on IDLE and this flag is false,
+    // maybeRearmVoice() restarts it on a self-rescheduling backoff loop.
     private var voicePaused = false
     private var rearmJob: Job? = null
-    private var rearmBackoffMs = REARM_INITIAL_MS
 
     private fun onSegmentFinalized(segment: String) {
         confirmedText = if (confirmedText.isEmpty()) segment else "$confirmedText $segment"
@@ -109,26 +111,18 @@ class NoteViewModel @Inject constructor(
         // Cloud errors arrive on the OkHttp WebSocket thread; the fallback path creates and
         // starts a SpeechRecognizer, which must run on the main thread. viewModelScope is
         // Main.immediate, so everything below is marshaled there.
+        //
+        // M49: every VoiceError is TERMINAL. The cloud engine recovers from transient
+        // transport problems internally (RECOVERING state, in-engine reconnect + replay)
+        // and emits exactly one error at give-up — a second retry authority here meant
+        // double sessions and double billing.
         viewModelScope.launch {
-            _uiState.update { it.copy(listeningState = ListeningState.IDLE) }
-
-            val isCloud = error.engine == VoiceEngine.CLOUD
-            // A transient cloud blip (dropped connection): try to reconnect a couple of times
-            // silently before bothering the user. The counter resets once we reach LISTENING.
-            if (isCloud && error.kind == VoiceErrorKind.TRANSIENT && cloudTransientRetries < MAX_CLOUD_RETRIES) {
-                cloudTransientRetries++
-                val engine = voiceRecognizer
-                delay(800)
-                if (voiceRecognizer === engine && voiceIntended()) engine.start()
-                return@launch
-            }
-
-            if (isCloud) {
-                // Fatal cloud failure (out of credit, bad key, or exhausted retries) — keep the
-                // user dictating by falling back to on-device for the rest of this session.
+            if (error.engine == VoiceEngine.CLOUD) {
+                // Keep the user dictating by falling back to on-device for this session.
                 fallbackToOnDevice(error)
             } else {
-                // On-device errors keep the old transient-snackbar behavior.
+                // On-device errors keep the transient-snackbar behavior; the watchdog
+                // handles re-arming.
                 _uiState.update { it.copy(submitError = error.message) }
             }
         }
@@ -140,9 +134,8 @@ class NoteViewModel @Inject constructor(
      * stored key, so the user's preference and BYOK key survive untouched.
      */
     private fun fallbackToOnDevice(error: VoiceError) {
-        cloudTransientRetries = 0
         engineOverride = AuthManager.VOICE_MODE_ON_DEVICE
-        switchEngine(AuthManager.VOICE_MODE_ON_DEVICE, currentKey, startIfIntended = voiceIntended())
+        switchEngine(AuthManager.VOICE_MODE_ON_DEVICE, currentKey)
         val reason = when (error.kind) {
             VoiceErrorKind.OUT_OF_CREDIT ->
                 "High-accuracy voice stopped — your OpenAI account is out of credit. Switched to on-device."
@@ -181,33 +174,32 @@ class NoteViewModel @Inject constructor(
                     currentMode = mode
                     currentKey = key
                     if (changed) {
-                        switchEngine(engineOverride ?: mode, key, startIfIntended = voiceIntended())
+                        switchEngine(engineOverride ?: mode, key)
                     }
                 }
         }
     }
 
     /**
-     * Swap the live voice engine. Whether to (re)start it is decided by the user's intent
-     * ([voiceIntended]) — NOT the outgoing engine's momentary [ListeningState]. The old code
-     * read `listeningState != IDLE`, but on cold start that's still IDLE during the async
-     * on-device warm-up, so a config-driven swap could leave the new engine never started →
-     * "the mic isn't active when I open the app."
+     * Swap the live voice engine. M49 invariant: the swap starts the new engine iff
+     * voice is intended AND not deliberately paused, and NEVER mutates voicePaused or
+     * inputMode. On the Settings screen (ON_PAUSE set voicePaused=true) a mode/key
+     * change builds the engine cold and the mic comes up on return via ON_RESUME's
+     * startVoiceInput — the old force-clear here was the Settings-screen hot-mic bug.
+     * Cold start still works: voicePaused is false at launch, so the config-driven
+     * swap (or the permission callback) starts it immediately (M47 fix preserved).
      */
-    private fun switchEngine(mode: String, key: String?, startIfIntended: Boolean) {
+    private fun switchEngine(mode: String, key: String?) {
         recognizerStateJob?.cancel()
         voiceRecognizer.destroy()
-        cloudTransientRetries = 0
         voiceRecognizer = if (mode == AuthManager.VOICE_MODE_CLOUD && !key.isNullOrBlank()) {
-            OpenAiRecognizer(key, ::onSegmentFinalized, ::onVoiceError)
+            OpenAiRecognizer(key, context, ::onSegmentFinalized, ::onVoiceError)
         } else {
             SpeechRecognizerManager(context, ::onSegmentFinalized, ::onVoiceError)
         }
         _uiState.update { it.copy(speechAvailable = voiceRecognizer.isAvailable) }
         observeRecognizerState()
-        if (startIfIntended && _uiState.value.permissionGranted && voiceRecognizer.isAvailable) {
-            voicePaused = false
-            _uiState.update { it.copy(inputMode = InputMode.VOICE) }
+        if (voiceIntended() && !voicePaused && voiceRecognizer.isAvailable) {
             voiceRecognizer.start()
         }
     }
@@ -215,10 +207,9 @@ class NoteViewModel @Inject constructor(
     /** User wants to retry cloud (e.g. after topping up). Uses the still-saved key. */
     fun retryCloud() {
         engineOverride = null
-        cloudTransientRetries = 0
         _uiState.update { it.copy(voiceEngineNotice = null) }
         if (!currentKey.isNullOrBlank()) {
-            switchEngine(AuthManager.VOICE_MODE_CLOUD, currentKey, startIfIntended = voiceIntended())
+            switchEngine(AuthManager.VOICE_MODE_CLOUD, currentKey)
         }
     }
 
@@ -274,11 +265,6 @@ class NoteViewModel @Inject constructor(
         recognizerStateJob = viewModelScope.launch {
             launch {
                 recognizer.listeningState.collect { state ->
-                    // A healthy session clears the transient-retry budgets.
-                    if (state == ListeningState.LISTENING) {
-                        cloudTransientRetries = 0
-                        rearmBackoffMs = REARM_INITIAL_MS
-                    }
                     _uiState.update { it.copy(listeningState = state) }
                     if (state == ListeningState.IDLE) maybeRearmVoice(recognizer)
                 }
@@ -298,22 +284,26 @@ class NoteViewModel @Inject constructor(
 
     /**
      * Watchdog: the engine settled on IDLE while the user still wants the mic on and
-     * nothing deliberate stopped it — re-arm after a backoff (doubling to a cap, reset
-     * whenever LISTENING is reached). Retries indefinitely: the capture screen is open
-     * and awake, so a slow, gentle retry loop is exactly the desired behavior.
+     * nothing deliberate stopped it — re-arm on a SELF-RESCHEDULING backoff loop
+     * (1s doubling to 8s). M49: the old single-shot version was edge-triggered on IDLE
+     * emissions; StateFlow dedups equal values, so a start() that failed without
+     * leaving IDLE never re-fired it and the watchdog starved after one attempt. The
+     * loop persists until the engine leaves IDLE or the user no longer wants voice.
      */
     private fun maybeRearmVoice(engine: VoiceRecognizer) {
-        if (voicePaused || !voiceIntended() || _uiState.value.isSubmitting) return
-        rearmJob?.cancel()
+        if (rearmJob?.isActive == true) return
         rearmJob = viewModelScope.launch {
-            delay(rearmBackoffMs)
-            rearmBackoffMs = (rearmBackoffMs * 2).coerceAtMost(REARM_MAX_MS)
-            // Re-check everything at fire time: the world may have changed during the delay
-            // (user switched to keyboard, engine swapped, another path already restarted it).
-            if (voicePaused || !voiceIntended() || _uiState.value.isSubmitting) return@launch
-            if (voiceRecognizer !== engine) return@launch
-            if (voiceRecognizer.listeningState.value != ListeningState.IDLE) return@launch
-            voiceRecognizer.start()
+            var backoffMs = REARM_INITIAL_MS
+            while (true) {
+                delay(backoffMs)
+                // Re-check everything at fire time: the world may have changed during
+                // the delay (keyboard switch, engine swap, another path restarted it).
+                if (voicePaused || !voiceIntended() || _uiState.value.isSubmitting) return@launch
+                if (voiceRecognizer !== engine) return@launch
+                if (voiceRecognizer.listeningState.value != ListeningState.IDLE) return@launch
+                voiceRecognizer.start()
+                backoffMs = (backoffMs * 2).coerceAtMost(REARM_MAX_MS)
+            }
         }
     }
 
@@ -340,7 +330,7 @@ class NoteViewModel @Inject constructor(
             engineOverride = null
             if (currentMode != AuthManager.VOICE_MODE_ON_DEVICE) {
                 _uiState.update { it.copy(voiceEngineNotice = null) }
-                switchEngine(currentMode, currentKey, startIfIntended = true)
+                switchEngine(currentMode, currentKey) // starts: voice intended + not paused here
                 return
             }
         }
@@ -376,9 +366,19 @@ class NoteViewModel @Inject constructor(
         }
     }
 
-    fun submit() {
+    fun submit(force: Boolean = false) {
         val text = _uiState.value.noteText.trim()
         if (text.isEmpty() || _uiState.value.isSubmitting) return
+
+        // M49: during CONNECTING/RECOVERING the cloud engine may hold seconds of
+        // spoken-but-untranscribed audio in its ring buffer; submitting now would
+        // silently save a note missing its tail. Confirm instead of discard.
+        val state = _uiState.value.listeningState
+        if (!force && (state == ListeningState.RECOVERING || state == ListeningState.CONNECTING)) {
+            _uiState.update { it.copy(showRecoverySubmitConfirm = true) }
+            return
+        }
+        _uiState.update { it.copy(showRecoverySubmitConfirm = false) }
 
         val wasVoice = _uiState.value.inputMode == InputMode.VOICE
         voicePaused = true
@@ -428,10 +428,12 @@ class NoteViewModel @Inject constructor(
         voiceRecognizer.destroy()
     }
 
-    private companion object {
-        /** Silent cloud reconnect attempts before falling back to on-device. */
-        const val MAX_CLOUD_RETRIES = 2
+    /** User declined to submit while reconnecting — keep dictating. */
+    fun dismissRecoverySubmitConfirm() {
+        _uiState.update { it.copy(showRecoverySubmitConfirm = false) }
+    }
 
+    private companion object {
         /** Watchdog re-arm backoff: starts here, doubles per attempt, capped below. */
         const val REARM_INITIAL_MS = 1000L
         const val REARM_MAX_MS = 8000L

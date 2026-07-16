@@ -3,6 +3,9 @@
 ## v0.6.0 (in progress)
 
 **What's New**
+- High-accuracy dictation no longer loses words to bad service. The mic now records continuously into a rolling 60-second buffer that outlives the cloud connection — if the connection drops or stalls mid-dictation, the status shows **Reconnecting…**, you keep talking, and everything you said is transcribed once the connection returns. Verified in the field: a full sentence spoken entirely in airplane mode appeared in the note after reconnecting, across two consecutive outages. When there's provably no network, it waits out the full 60 seconds before falling back to on-device (on-device can't transcribe offline either, so bailing early only threw words away).
+- Honest mic status. The indicator now distinguishes **Connecting…** (session starting — your words are already being captured and will transcribe once it's up), **Listening…** (actively transcribing), **Reconnecting…** (connection dropped, mic still hot, words buffered), and **Mic idle**. Previously "connecting" masqueraded as listening — including one failure mode where the session was never actually configured and transcribed nothing while claiming to listen.
+- Submitting while reconnecting now asks first. If you hit Submit while the connection is down, your last words may not be in the note yet — GitJot offers to wait or submit what's shown, instead of silently saving a note missing its tail.
 - Optional high-accuracy voice input. Settings now has a **Voice Input** section where you can switch from on-device dictation to cloud transcription powered by OpenAI. It's bring-your-own-key: paste your own OpenAI API key (stored encrypted on your device, never sent anywhere but OpenAI). In this mode your audio is streamed to OpenAI while you dictate; on-device stays the default and the disclosure is shown right in Settings.
 - Graceful fallback if cloud voice fails. If high-accuracy transcription stops mid-dictation — your OpenAI credit runs out, the key is rejected, the connection drops — GitJot now switches to on-device voice automatically so you keep dictating, and shows a banner explaining what happened with one-tap **Retry high-accuracy**. The fallback lasts only until you next open the app to dictate: high accuracy is retried automatically each new session, and your saved key is never touched. Switching engines permanently is done in Settings ("On-device only" / "High accuracy").
 
@@ -16,6 +19,8 @@
 
 **Bug Fix**
 - Fixed the mic silently turning off mid-dictation and staying dead until you tapped the text box. Three causes: the cloud connection closing without triggering any recovery, rare on-device recognizer errors being treated as fatal, and nothing in the app ever re-arming a mic that died on its own. Dictation now recovers automatically — a watchdog restarts the mic within seconds whenever it stops while you still want it on.
+- Fixed changing voice settings turning the microphone on while you're still on the Settings screen.
+- Fixed a watchdog blind spot where a failed restart attempt could leave the mic dead with no further retries — the watchdog now keeps retrying on a backoff loop until the mic is back or you turn it off.
 - Fixed a spurious "Client error" message appearing after ending a dictation session.
 - Fixed the mic occasionally being inactive right after opening the app — a startup race when cloud voice was the selected engine.
 

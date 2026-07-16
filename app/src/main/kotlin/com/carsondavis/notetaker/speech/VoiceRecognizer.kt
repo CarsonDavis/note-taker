@@ -31,10 +31,11 @@ interface VoiceRecognizer {
 enum class VoiceEngine { ON_DEVICE, CLOUD }
 
 /**
- * Why a voice engine failed. [TRANSIENT] is worth a silent retry; the rest are fatal
- * and (for [VoiceEngine.CLOUD]) trigger the automatic fallback to on-device.
+ * Why a voice engine failed. All kinds are TERMINAL (M49): engines recover from
+ * transient transport problems internally and emit exactly one error at give-up;
+ * for [VoiceEngine.CLOUD] that triggers the automatic fallback to on-device.
  */
-enum class VoiceErrorKind { TRANSIENT, OUT_OF_CREDIT, INVALID_KEY, OTHER }
+enum class VoiceErrorKind { OUT_OF_CREDIT, INVALID_KEY, OTHER }
 
 /** A structured voice-engine failure, replacing the old plain-string error callback. */
 data class VoiceError(
