@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.work.WorkManager
 import com.carsondavis.notetaker.data.auth.AuthManager
 import com.carsondavis.notetaker.data.auth.OAuthTokenExchanger
+import com.carsondavis.notetaker.data.local.DraftStore
 import com.carsondavis.notetaker.data.local.PendingNoteDao
 import com.carsondavis.notetaker.data.local.SubmissionDao
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -42,7 +43,8 @@ class SettingsViewModel @Inject constructor(
     private val encryptedPrefs: SharedPreferences,
     private val submissionDao: SubmissionDao,
     private val pendingNoteDao: PendingNoteDao,
-    private val workManager: WorkManager
+    private val workManager: WorkManager,
+    private val draftStore: DraftStore
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -128,6 +130,7 @@ class SettingsViewModel @Inject constructor(
             workManager.cancelAllWork()
             pendingNoteDao.deleteAll()
             submissionDao.deleteAll()
+            draftStore.clear()
             authManager.clearAllData()
             _uiState.update { it.copy(isSigningOut = false) }
             onComplete()

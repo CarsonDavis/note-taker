@@ -1111,3 +1111,96 @@ flipping that condition in a throwaway build.
 
 **Still open:** nothing. If the chunk-per-pause preview is ever worth improving, that's
 independent of this change and predates it.
+
+---
+
+## M51 — Dictation survives screen-off and process death (2026-10-03)
+
+**Reported problem.** "If the phone screen turns off or goes to sleep, you lose your
+note" — and more generally, a 40-minute meeting dictation must not be losable.
+
+**Review findings.**
+- The screen-timeout path was already closed in M47: `NoteInputScreen` sets
+  `view.keepScreenOn = true` (the standard Compose idiom — `LocalView` is the
+  `AndroidComposeView`; `setKeepScreenOn` propagates `FLAG_KEEP_SCREEN_ON` to the
+  window via `recomputeViewAttributes`). The phone's last verified install (M50,
+  2026-07-30) includes it, so an idle timeout should not have been turning the screen
+  off mid-dictation. Not re-verified on-device this session — no device was attached.
+- M47 scoped keep-screen-on to the whole note screen, including keyboard mode and just
+  reading the note. The requested behavior is narrower: on only while actively
+  listening.
+- The real "lose the whole note" path: the note text lived ONLY in `NoteViewModel`
+  memory. If the screen does go off for any other reason (power button, incoming
+  call, switching apps), `ON_PAUSE` stops the mic by design and the text survives in
+  the ViewModel — but if the OS then reclaims the backgrounded process, the app
+  crashes, or the task is swiped away, every word dictated so far was gone. Nothing
+  persisted a draft; `SavedStateHandle` wasn't used either.
+- Not a defect, but worth knowing: audio spoken while the activity is paused is not
+  captured. Continuing to record with the screen off would need a microphone
+  foreground service (`FOREGROUND_SERVICE_MICROPHONE`, Android 14+ start restrictions)
+  and moving the recognizers out of the ViewModel. Deliberately not done — the ask
+  was "don't let the screen turn off while listening", which is the cheaper and more
+  predictable guarantee.
+
+**What changed.**
+1. `NoteInputScreen`: `DisposableEffect(keepAwake)` where
+   `keepAwake = uiState.inputMode == InputMode.VOICE`. Voice mode (including
+   think-pauses, CONNECTING/RECOVERING, and the watchdog's ≤8 s IDLE re-arm window)
+   keeps the screen on; keyboard mode releases it. Releasing is safe mid-session
+   because WindowManager's hold-screen wake lock is `ON_AFTER_RELEASE` — the user
+   activity timer is poked on release, so the full timeout applies from that moment,
+   never an instant sleep.
+2. New `data/local/DraftStore.kt`: a Preferences DataStore (`note_draft`, one string
+   key) with `load()` / `save()` / `clear()`. Reads tolerate `IOException` (treated as
+   no draft).
+3. `NoteViewModel`: injects `DraftStore`. `restoreDraftThenAutosave()` runs in `init`:
+   loads the draft, merges it in front of anything already captured
+   (`confirmedText`), publishes it to `noteText`, and only THEN starts collecting
+   `noteText` changes → `debounce(500 ms)` → `draftStore.save()`. Starting the
+   collector after the restore means an early-finalized segment can't clobber the
+   draft before it's read. `submit()`'s SENT and QUEUED branches call
+   `draftStore.clear()` immediately rather than waiting for the debounced "" save.
+4. `SettingsViewModel.clearAllData()` also clears the draft. Sign-out deliberately
+   does not — like the voice settings, the draft is user content unrelated to GitHub
+   auth, and a user who reconnects shouldn't find their note gone.
+
+**Alternatives considered.** `SavedStateHandle` (built-in, Hilt-injectable) covers
+configuration changes and system-initiated process death only while the task is
+retained — it does not survive swipe-away, reboot, or a foreground crash, and
+`NoteCaptureActivity` is routinely dismissed. A Room draft table would work but is
+heavier than one string; DataStore is already in use and its writes are atomic.
+
+**Behavior notes.**
+- Backing out of `NoteCaptureActivity` (lock-screen capture) without submitting used
+  to discard the note silently; it is now restored on the next launch. Clear the field
+  (or submit) to discard.
+- `MainActivity` and `NoteCaptureActivity` each own a `NoteViewModel`; both restore
+  from and write to the same draft. Pre-existing two-instance quirk (unchanged): a
+  stale in-memory copy in the other activity is not reconciled against the store.
+
+**Root cause of the field report.** The phone in use is now a Galaxy S25 Ultra
+(`R5CY11M311L`, SM-S938U1), not the S24 Ultra in HANDOFF.md. It was running a
+release-signed build, versionCode 300, installed 2026-07-18. CI has only ever run 6
+times (max code 106), so 300 was a local `bundleRelease`/`assembleRelease` of an
+unknown commit — and `origin/staging`/`origin/master` are still at February commits,
+long before M47. Whichever commit it was, the user's observation (screen sleeps mid-
+dictation) is consistent with a pre-M47 build; the keep-screen-on code never reached
+this phone before now.
+
+**Installing on this phone.** `installDebug` fails twice over: `INSTALL_FAILED_VERSION_
+DOWNGRADE` (local code 7 < 300) and then `INSTALL_FAILED_UPDATE_INCOMPATIBLE` (debug
+key ≠ upload key). What works, keeping app data (auth, OpenAI key, queued notes):
+`./gradlew assembleRelease -PVERSION_CODE=<n greater than installed>` then
+`adb install -r app/build/outputs/apk/release/app-release.apk`. Installed as code 301.
+
+**Verification (on-device, S25 Ultra, release build code 301, 2026-10-03).**
+- Voice mode holds the screen: `dumpsys window` → `mHoldScreenWindow=Window{… MainActivity}`
+  while "Listening…" is shown. PASS.
+- Keyboard mode releases it: tap the text box → `mHoldScreenWindow=null`. PASS.
+- Draft survives process death: with text in the field, `am force-stop` + relaunch →
+  field content byte-for-byte identical to the pre-kill dump (EXACT MATCH), and voice
+  mode resumed with the hold re-acquired. PASS. (The mic picked up ambient speech
+  during the test, which is why the content was nonsense; irrelevant to the check.)
+- Clearing persists: select-all + delete → force-stop + relaunch → field empty. PASS.
+- Not exercised: the submit → draft-cleared path (would have pushed a test note to the
+  user's real repo) and Delete All Data. Both call the same `draftStore.clear()`.

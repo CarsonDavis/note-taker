@@ -53,6 +53,7 @@ Minimal Android app for capturing notes and pushing them to a GitHub repo via th
 - `SubmissionEntity.kt` — Submission history table
 - `PendingNoteEntity.kt` — Offline queue table (text, filename, status)
 - `PendingNoteDao.kt` — Queue queries (insert, getAllPending, getPendingCount, updateStatus, delete)
+- `DraftStore.kt` — Preferences DataStore (`note_draft`) holding the in-progress note text so an unsent note survives process death; restored by NoteViewModel at startup, autosaved on a debounce, cleared on send/queue and by Delete All Data (M51)
 
 #### `data/repository/`
 - `NoteRepository.kt` — Data access: queue-first submit, browse directory/file contents
@@ -72,15 +73,15 @@ Minimal Android app for capturing notes and pushing them to a GitHub repo via th
 - `NavGraph.kt` — Compose Navigation with type-safe routes (Auth, Note, Settings, Browse)
 
 #### `ui/screens/`
-- `NoteInputScreen.kt` — Main note input (growing text field, submit with queued state, pending count, history, onboarding dialog)
+- `NoteInputScreen.kt` — Main note input (growing text field, submit with queued state, pending count, history, onboarding dialog). Keeps the screen on only while in voice mode (M51)
 - `AuthScreen.kt` — Auth setup screen: two-card layout (1. Fork repo, 2. Connect repo). OAuth "Sign in with GitHub" as primary with "What am I agreeing to?" dialog, PAT as inline content swap within card 2. Fork help dialog explains template repo + Claude Code agent. Green step numbers, right-justified `?` icons. `LifecycleEventEffect(ON_RESUME)` resets OAuth spinner on back-press. "Need help?" video link at bottom
 - `SettingsScreen.kt` — Two-card layout: "Device Connection" (username, repo, auth type, helper text about easy reconnect, red Disconnect button with confirmation dialog) and "GitJot on GitHub" (OAuth only — permissions description, Manage on GitHub button). Plus two-step digital assistant setup and delete all data
 - `BrowseScreen.kt` — Read-only repo browser: directory listing, file viewer with markdown rendering
 
 #### `ui/viewmodels/`
-- `NoteViewModel.kt` — Note input state, queue-first submit, pending count, onboarding
+- `NoteViewModel.kt` — Note input state, queue-first submit, pending count, onboarding, voice engine switching + watchdog, draft restore/autosave via DraftStore (M51)
 - `AuthViewModel.kt` — OAuth flow (PKCE, callback handling, token exchange, repo discovery), dual-path `startOAuthFlow()` (authorize URL for returning users, install URL for first-time), state validation, stale installation recovery, `cancelOAuthFlow()` for back-press reset with install hint (guarded against race with `isValidating`), PAT validation fallback with URL parsing, repo selection dialog when multiple repos available
-- `SettingsViewModel.kt` — Settings state, disconnect with OAuth token revocation, role check, delete all data, auth type display, pending note count
+- `SettingsViewModel.kt` — Settings state, disconnect with OAuth token revocation, role check, delete all data (incl. the note draft), auth type display, pending note count
 - `BrowseViewModel.kt` — Browse state: directory navigation, file viewing
 
 #### `ui/theme/`

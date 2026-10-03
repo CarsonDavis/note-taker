@@ -176,11 +176,15 @@ fun NoteInputScreen(
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
 
-    // Keep the screen awake while the capture screen is open so it never sleeps
-    // mid-note (e.g. during a pause while dictating). Cleared when leaving the screen.
+    // Keep the screen awake while the mic is wanted (voice mode, M51 — narrowed from
+    // M47's whole-screen scope). A screen timeout would pause the activity and stop the
+    // mic, cutting off a long dictation. Think-pauses are still voice mode, so they're
+    // covered. In keyboard mode, or while just reading the note, the screen may sleep
+    // normally — the text is retained in the ViewModel and persisted as a draft.
     val view = LocalView.current
-    DisposableEffect(Unit) {
-        view.keepScreenOn = true
+    val keepAwake = uiState.inputMode == InputMode.VOICE
+    DisposableEffect(keepAwake) {
+        view.keepScreenOn = keepAwake
         onDispose { view.keepScreenOn = false }
     }
 

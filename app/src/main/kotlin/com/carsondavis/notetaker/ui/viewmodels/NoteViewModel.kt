@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.carsondavis.notetaker.data.auth.AuthManager
+import com.carsondavis.notetaker.data.local.DraftStore
 import com.carsondavis.notetaker.data.repository.NoteRepository
 import com.carsondavis.notetaker.data.repository.SubmitResult
 import com.carsondavis.notetaker.speech.ListeningState
@@ -16,14 +17,17 @@ import com.carsondavis.notetaker.speech.cloud.OpenAiRecognizer
 import com.carsondavis.notetaker.ui.components.SubmissionItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -66,6 +70,7 @@ data class NoteUiState(
 class NoteViewModel @Inject constructor(
     private val repository: NoteRepository,
     private val authManager: AuthManager,
+    private val draftStore: DraftStore,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -159,7 +164,31 @@ class NoteViewModel @Inject constructor(
         observePendingCount()
         observeRecognizerState()
         observeVoiceConfig()
+        restoreDraftThenAutosave()
         checkOnboarding()
+    }
+
+    /**
+     * Draft persistence (M51). The note text otherwise exists only in this ViewModel,
+     * so process death (OS kill while backgrounded, a crash, the task swiped away) lost
+     * the whole note. Load the saved draft first, then persist every change on a short
+     * debounce. The autosave collector is started only AFTER the restore completes, so
+     * a segment finalized in the first few ms can't overwrite the draft before it's
+     * been read; any such segment is appended after the restored text instead.
+     */
+    @OptIn(FlowPreview::class)
+    private fun restoreDraftThenAutosave() {
+        viewModelScope.launch {
+            val draft = draftStore.load().trim()
+            if (draft.isNotEmpty()) {
+                confirmedText = if (confirmedText.isEmpty()) draft else "$draft $confirmedText"
+                _uiState.update { it.copy(noteText = confirmedText) }
+            }
+            _uiState.map { it.noteText }
+                .distinctUntilChanged()
+                .debounce(DRAFT_SAVE_DEBOUNCE_MS)
+                .collect { draftStore.save(it) }
+        }
     }
 
     private fun observeVoiceConfig() {
@@ -391,12 +420,14 @@ class NoteViewModel @Inject constructor(
             result.onSuccess { submitResult ->
                 when (submitResult) {
                     SubmitResult.SENT -> {
+                        draftStore.clear() // immediately — don't wait for the debounced "" save
                         confirmedText = ""
                         _uiState.update {
                             it.copy(noteText = "", isSubmitting = false, submitSuccess = true)
                         }
                     }
                     SubmitResult.QUEUED -> {
+                        draftStore.clear()
                         confirmedText = ""
                         _uiState.update {
                             it.copy(noteText = "", isSubmitting = false, submitQueued = true)
@@ -437,5 +468,7 @@ class NoteViewModel @Inject constructor(
         /** Watchdog re-arm backoff: starts here, doubles per attempt, capped below. */
         const val REARM_INITIAL_MS = 1000L
         const val REARM_MAX_MS = 8000L
+        /** Draft autosave debounce: short enough that a crash loses at most a beat of speech. */
+        const val DRAFT_SAVE_DEBOUNCE_MS = 500L
     }
 }

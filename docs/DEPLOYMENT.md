@@ -38,6 +38,7 @@ An integer that must strictly increase with every upload to Google Play. Once a 
 
 - **CI builds:** `github.run_number + 100`. The offset avoids collision with historical codes 1–6 from manual uploads.
 - **Local builds:** `VERSION_CODE` in `local.properties` (currently 6). Only matters for debug builds on a physical device. Never uploaded to Play.
+- **Updating a phone that runs a release-signed build** (the S25 Ultra, code 300+): debug builds can't install over it (different key). Use `./gradlew assembleRelease -PVERSION_CODE=<higher than installed>` then `adb install -r app/build/outputs/apk/release/app-release.apk` — keeps app data. Check the installed code with `adb shell dumpsys package com.carsondavis.notetaker | grep versionCode`.
 - **Fallback:** If neither Gradle property nor `local.properties` provides a value, defaults to `1` so a fresh clone still builds.
 
 **Priority chain in `build.gradle.kts`:**

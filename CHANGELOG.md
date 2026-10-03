@@ -16,7 +16,8 @@
 - Dictation drops fewer words between phrases — the voice recognizer now reuses its session instead of fully tearing down and rebuilding on every pause, which roughly cut in half the brief gap where speech wasn't being captured. (Further refinement in progress.)
 - Cloud transcription is now locked to English, so it no longer occasionally transcribes in another language.
 - High-accuracy dictation now uses OpenAI's newer `gpt-transcribe` model instead of `gpt-4o-transcribe` — OpenAI's current-generation speech-to-text, and cheaper per minute on your own API key ($0.0045/min vs $0.006/min).
-- The screen no longer sleeps while you're taking a note.
+- The screen no longer sleeps while you're dictating. (While you're typing or just reading the note it can sleep normally.)
+- An unsent note is now saved to your device as you go and restored the next time you open GitJot, so a crash, a low-memory kill, or swiping the app away can no longer lose what you've dictated. It's cleared once the note is sent or queued.
 
 **Bug Fix**
 - Fixed the mic silently turning off mid-dictation and staying dead until you tapped the text box. Three causes: the cloud connection closing without triggering any recovery, rare on-device recognizer errors being treated as fatal, and nothing in the app ever re-arming a mic that died on its own. Dictation now recovers automatically — a watchdog restarts the mic within seconds whenever it stops while you still want it on.

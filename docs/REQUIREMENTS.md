@@ -132,6 +132,8 @@ Accessible from the top bar of the note input screen.
 - Permission denied or SpeechRecognizer unavailable → falls back to keyboard-only mode
 - Submit while listening: stops voice, submits, clears, restarts voice
 - App backgrounded: ON_PAUSE stops recognizer, ON_RESUME restarts
+- Screen stays on while in voice mode (FLAG_KEEP_SCREEN_ON via `view.keepScreenOn`), so a long dictation is never cut off by the screen timeout; in keyboard mode the screen may sleep normally
+- Unsent note text is persisted to disk (`DraftStore`) on a 500 ms debounce and restored on next launch, so process death (OS kill, crash, swipe-away) cannot lose a note; cleared on send/queue
 - App always returns to NoteInputScreen when brought to foreground
 
 ### Lock Screen Security ✅
