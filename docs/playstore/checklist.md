@@ -1,6 +1,6 @@
 # Play Store Publishing Checklist
 
-Step-by-step guide to publishing Note Taker on Google Play.
+Step-by-step guide to publishing GitJot on Google Play.
 
 ## Phase 1: Prerequisites
 
@@ -47,7 +47,7 @@ All text content is drafted in [store-listing.md](store-listing.md).
 
 ### Create the App
 - [ ] Go to [Play Console](https://play.google.com/console) → **Create app**
-- [ ] App name: `Note Taker`
+- [ ] App name: `GitJot`
 - [ ] Default language: English (United States)
 - [ ] App or game: **App**
 - [ ] Free or paid: **Free**

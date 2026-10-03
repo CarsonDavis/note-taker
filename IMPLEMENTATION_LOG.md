@@ -1043,3 +1043,71 @@ handleEvent for future field debugging.
 
 **Still open:** M46 issue #3 (Play Store privacy docs), offline language pack as an
 alternative offline story, RECOVERY_BUDGET tuning for captive-portal-style failures.
+
+---
+
+## M50 — Cloud transcription model: gpt-4o-transcribe → gpt-transcribe (2026-07-30)
+
+**What changed.** One line in `OpenAiRecognizer.socketListener.onOpen`: the Realtime
+session config's `audio.input.transcription.model` now requests `gpt-transcribe`
+instead of `gpt-4o-transcribe`. Nothing else moved — same `v1/realtime` WebSocket, same
+`"language": "en"` sibling, same `server_vad` turn detection, same event handling.
+
+**Why this model.** Three current-gen options reach `v1/realtime/transcription_sessions`:
+
+| Model | $/min | WER (Artificial Analysis) | Shape |
+|---|---|---|---|
+| `gpt-transcribe` | 0.0045 | **3.3%** | committed turns; also `v1/audio/transcriptions` |
+| `gpt-live-transcribe` | 0.017 | not published | low-latency deltas, tunable latency |
+| `gpt-realtime-whisper` | 0.017 | not published | low-latency deltas; superseded by the above |
+| `gpt-4o-transcribe` (old) | 0.006 | 4.0% | what we were on |
+
+Chose `gpt-transcribe`: **most accurate model OpenAI publishes** (3.3% vs 4.0% for
+`gpt-4o-transcribe`), 25% cheaper than what we were on, and 3.8× cheaper than either
+streaming model. The streaming models sell intra-utterance deltas — which this app does
+not surface (see live-preview note below) — and publish no WER, while OpenAI's own
+framing is that they let developers "tune latency and accuracy," i.e. latency is bought
+with accuracy. For a note-taking app, accuracy is the axis that matters.
+
+Note for any future escalation: the right streaming model is `gpt-live-transcribe`, not
+`gpt-realtime-whisper` — OpenAI now positions `gpt-transcribe` + `gpt-live-transcribe`
+as the recommended pair, replacing `whisper-1` and `gpt-realtime-whisper-1`.
+
+**Measured latency on-device (this build, S24 Ultra).** `speech_stopped` →
+`transcription.completed`: 506 ms, 412 ms, 434 ms across the three test segments
+(517 ms for the noise segment). Add the server VAD's `silence_duration_ms: 500` to get
+perceived pause-to-text of roughly **0.9–1.0 s**. No baseline captured for
+`gpt-4o-transcribe`, so this is an absolute figure, not a delta.
+
+**Verification (on-device, S24 Ultra, md5-checked install `657763ab…`, live dictation).**
+- Model accepted: `session.updated` echoed
+  `"transcription":{"model":"gpt-transcribe","language":"en"}` back from the server —
+  the authoritative signal, since a bad model ID yields an `error` event and no
+  `session.updated`. `session ready` followed 43 ms after `session.created`.
+- Transcription PASS: three consecutive real segments, all non-empty, correctly
+  ordered, English, punctuated ("All right, so this is a test that we don't need to
+  actually store anywhere." / "And it is for the latest." / "API transcription model
+  from GPT that we've switched over to."). Mid-sentence VAD split across segments 2–3
+  is normal endpointer behavior; ordered flush concatenates them.
+- Zero `transcription.failed`, zero `api error`, zero reconnects/stalls, no abandoned
+  audio across a ~5 min live session.
+- One empty segment at 08:00:30 from ~0.9 s of VAD-triggered background noise before
+  dictation began — full event chain ran (`speech_started` → `committed` →
+  `transcription.completed`) and returned `''`. Expected, not a defect.
+
+**Live preview: unchanged, no regression.** Observed on-device, text appears one chunk
+per speech pause rather than word-by-word — and the user confirms `gpt-4o-transcribe`
+behaved the same way, so this is pre-existing behavior, not a cost of the swap. That
+closes the delta question raised when picking the model: there is no live-preview
+advantage to buy back, and `gpt-realtime-whisper` at $0.017/min is not worth
+considering. (An earlier draft of this entry inferred from the delta-handling code and
+the logger's delta volume-guard that deltas used to stream; that inference was wrong.)
+
+**Method note.** Delta events cannot be counted from logcat: `handleEvent` excludes
+`conversation.item.input_audio_transcription.delta` from debug logging (an intentional
+volume guard), so their absence in a log proves nothing about whether the API sent
+them. Confirming live-preview behavior means observing the screen during dictation, or
+flipping that condition in a throwaway build.
+
+**Still open:** nothing. If the chunk-per-pause preview is ever worth improving, that's
+independent of this change and predates it.

@@ -1,14 +1,14 @@
-# Privacy Policy — Note Taker
+# Privacy Policy — GitJot
 
 *Last updated: 2026-02-13*
 
-Note Taker is a free, open-source Android application developed by Carson Davis. This privacy policy describes how the app handles data.
+GitJot is a free, open-source Android application developed by Carson Davis. This privacy policy describes how the app handles data.
 
-**The key point: Note Taker does not collect, store, or transmit any data to the developer or any third party.** The app is a tool that stores your data locally on your device and sends it only to your own GitHub repository at your direction.
+**The key point: GitJot does not collect, store, or transmit any data to the developer or any third party.** The app is a tool that stores your data locally on your device and sends it only to your own GitHub repository at your direction.
 
 ## No Data Collection
 
-Note Taker does **not** collect any user data. The developer has no servers, no analytics, no tracking, and no way to access anything you do in the app. Specifically:
+GitJot does **not** collect any user data. The developer has no servers, no analytics, no tracking, and no way to access anything you do in the app. Specifically:
 
 - No analytics services (no Google Analytics, Firebase, Mixpanel, etc.)
 - No advertising networks
@@ -19,7 +19,7 @@ Note Taker does **not** collect any user data. The developer has no servers, no 
 
 ## What the App Does With Your Data
 
-Note Taker is a tool that works entirely on your behalf:
+GitJot is a tool that works entirely on your behalf:
 
 ### Local storage (on your device only)
 All app data stays on your device in the app's private directory:
@@ -36,10 +36,10 @@ All app data stays on your device in the app's private directory:
 When you submit a note, the app sends it to the GitHub Contents API (`api.github.com`) over HTTPS to create a markdown file in **your own repository**. Your GitHub personal access token (PAT) is sent as an authorization header. This is no different from you pushing a file to GitHub yourself — the app is just the tool that does it.
 
 ### Speech recognition
-Note Taker uses Android's built-in `SpeechRecognizer` API for voice-to-text input. Speech processing is handled by your device's default speech recognition service (typically Google). **No audio is recorded or stored by Note Taker.** The app receives only the transcribed text. Your device's speech service may process audio according to its own privacy policy.
+GitJot uses Android's built-in `SpeechRecognizer` API for voice-to-text input. Speech processing is handled by your device's default speech recognition service (typically Google). **No audio is recorded or stored by GitJot.** The app receives only the transcribed text. Your device's speech service may process audio according to its own privacy policy.
 
 ### Data NOT accessed
-Note Taker does **not** access:
+GitJot does **not** access:
 - Location data
 - Contacts or address book
 - Camera or photos
@@ -51,9 +51,9 @@ Note Taker does **not** access:
 
 ## Third-Party Services
 
-The only external service Note Taker communicates with directly is the **GitHub API** (`api.github.com`), and only to read from and write to your own repository at your direction.
+The only external service GitJot communicates with directly is the **GitHub API** (`api.github.com`), and only to read from and write to your own repository at your direction.
 
-Additionally, speech-to-text input is processed by your device's default speech recognition service (typically Google's speech services). Note Taker does not control this service — it is part of your Android system.
+Additionally, speech-to-text input is processed by your device's default speech recognition service (typically Google's speech services). GitJot does not control this service — it is part of your Android system.
 
 Relevant third-party privacy policies:
 - **GitHub:** https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement
@@ -62,7 +62,7 @@ Relevant third-party privacy policies:
 ## Data Retention
 
 - **Local data** is retained on your device until you clear the app's data or uninstall the app.
-- **Notes in GitHub** are retained in your repository until you delete them. Note Taker does not automatically delete notes from GitHub.
+- **Notes in GitHub** are retained in your repository until you delete them. GitJot does not automatically delete notes from GitHub.
 
 ## Your Rights
 
@@ -74,7 +74,7 @@ You can:
 
 ## Children's Privacy
 
-Note Taker is not directed at children under 13. We do not knowingly collect personal information from children.
+GitJot is not directed at children under 13. We do not knowingly collect personal information from children.
 
 ## Changes to This Policy
 

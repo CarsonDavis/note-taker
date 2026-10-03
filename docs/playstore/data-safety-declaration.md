@@ -1,10 +1,10 @@
-# Data Safety Declaration — Note Taker
+# Data Safety Declaration — GitJot
 
 Answers for the Google Play Console Data Safety section.
 
 ## Overview
 
-Note Taker does **not** collect any user data. The developer has no servers, no analytics, and no access to anything users do in the app. All data stays on the user's device or is sent to the user's own GitHub repository at their direction — the app is just a tool, like a git client.
+GitJot does **not** collect any user data. The developer has no servers, no analytics, and no access to anything users do in the app. All data stays on the user's device or is sent to the user's own GitHub repository at their direction — the app is just a tool, like a git client.
 
 > **Note on Google Play's form:** Google's data safety form defines "collected" as any data transmitted off the device, even to user-controlled destinations. Because note text is sent to the GitHub API (to write to the user's own repo), we must declare it in the form below. But the developer never receives, sees, or has access to any of this data.
 
@@ -20,7 +20,7 @@ Note Taker does **not** collect any user data. The developer has no servers, no 
 
 ### Do you provide a way for users to request that their data be deleted?
 
-**Yes** — users can delete notes directly from their GitHub repository. Users can also clear all local app data (Settings → Apps → Note Taker → Clear data) or uninstall the app.
+**Yes** — users can delete notes directly from their GitHub repository. Users can also clear all local app data (Settings → Apps → GitJot → Clear data) or uninstall the app.
 
 ## Section 2: Data Types
 
@@ -53,7 +53,7 @@ Not collected.
 |-----------|-----------|--------|---------|----------|
 | Voice or sound recordings | No | No | — | — |
 
-> The app uses `RECORD_AUDIO` permission for speech-to-text input via Android's built-in `SpeechRecognizer` API. No audio is recorded or stored by Note Taker. Speech processing is handled by the device's default speech recognition service (e.g., Google). The app receives only the transcribed text.
+> The app uses `RECORD_AUDIO` permission for speech-to-text input via Android's built-in `SpeechRecognizer` API. No audio is recorded or stored by GitJot. Speech processing is handled by the device's default speech recognition service (e.g., Google). The app receives only the transcribed text.
 
 ### Files and docs
 Not collected.
@@ -92,7 +92,7 @@ Not collected.
 
 ## Summary Statement (for Data Safety UI)
 
-> Note Taker does not collect any data. Your notes are stored locally on your device and sent only to your own GitHub repository over HTTPS at your direction. Speech-to-text is processed by your device's default speech service (e.g., Google) — no audio is recorded or stored by Note Taker. No analytics, ads, tracking, or third-party data collection. The developer has no access to your data.
+> GitJot does not collect any data. Your notes are stored locally on your device and sent only to your own GitHub repository over HTTPS at your direction. Speech-to-text is processed by your device's default speech service (e.g., Google) — no audio is recorded or stored by GitJot. No analytics, ads, tracking, or third-party data collection. The developer has no access to your data.
 
 ## Data Flow Diagram
 

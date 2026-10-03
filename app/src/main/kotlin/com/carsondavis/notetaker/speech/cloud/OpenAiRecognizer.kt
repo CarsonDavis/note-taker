@@ -459,7 +459,7 @@ class OpenAiRecognizer(
                                 put("rate", SAMPLE_RATE)
                             })
                             put("transcription", JSONObject().apply {
-                                put("model", "gpt-4o-transcribe")
+                                put("model", "gpt-transcribe")
                                 put("language", "en")
                             })
                             put("turn_detection", JSONObject().apply {

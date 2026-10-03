@@ -1,10 +1,10 @@
-# How to Delete Your Data — Note Taker
+# How to Delete Your Data — GitJot
 
-Note Taker stores all data locally on your device. The developer has no servers and no access to your data. You can delete everything directly from the app.
+GitJot stores all data locally on your device. The developer has no servers and no access to your data. You can delete everything directly from the app.
 
 ## Delete from within the app
 
-1. Open Note Taker
+1. Open GitJot
 2. Tap the gear icon to open **Settings**
 3. Scroll to **Delete All Data** and tap the red button
 4. Confirm in the dialog
@@ -24,7 +24,7 @@ All data is removed immediately. There is no retention period.
 
 ## Alternative: Android system settings
 
-You can also clear all app data from Android Settings → Apps → Note Taker → Clear data. This has the same effect.
+You can also clear all app data from Android Settings → Apps → GitJot → Clear data. This has the same effect.
 
 ## Revoke GitHub access
 

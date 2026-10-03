@@ -1,8 +1,8 @@
-# Play Store Listing — Note Taker
+# Play Store Listing — GitJot
 
 ## App Identity
 
-- **App name:** Note Taker
+- **App name:** GitJot
 - **Developer name:** Carson Davis
 - **Category:** Productivity
 - **Content rating:** Everyone
@@ -38,7 +38,6 @@ Features
 • One-tap submission to GitHub
 • Offline note queuing with automatic retry
 • Repository browser with markdown rendering
-• Current topic display from your repo
 • Quick capture via side button
 • Dark theme
 
